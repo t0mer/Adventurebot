@@ -1,0 +1,2 @@
+class AdventureLogClient:
+    pass

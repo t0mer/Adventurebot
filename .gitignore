@@ -1,0 +1,29 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Claude / AI
+CLAUDE.md
+.claude/
+.cursor/
+.aider*
+
+# Design / planning docs
+/docs/
+docs/*
+*.design.md
+*.implementation.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+dist/
+build/
