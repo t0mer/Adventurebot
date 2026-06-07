@@ -14,6 +14,12 @@ from .keyboards import reco_category_keyboard, reco_radius_keyboard
 
 logger = logging.getLogger(__name__)
 
+
+def _esc(text: str) -> str:
+    for ch in ('\\', '_', '*', '`', '['):
+        text = text.replace(ch, f'\\{ch}')
+    return text
+
 RECO_AWAITING_LOCATION = 12
 RECO_CATEGORY = 13
 RECO_RADIUS = 14
@@ -171,7 +177,7 @@ async def handle_reco_radius(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> 
         dist_str = f"· {dist:.2f} km" if dist is not None else ""
 
         parts = " ".join(filter(None, [rating_str, reviews_str, dist_str]))
-        link = f"[{name}]({url})" if url else name
+        link = f"[{_esc(name)}]({url})" if url else _esc(name)
         lines.append(f"{i}. {link}" + (f" — {parts}" if parts else ""))
 
     await update.callback_query.edit_message_text(

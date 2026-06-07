@@ -11,6 +11,12 @@ from . import scheduler_store
 
 logger = logging.getLogger(__name__)
 
+
+def _esc(text: str) -> str:
+    for ch in ('\\', '_', '*', '`', '['):
+        text = text.replace(ch, f'\\{ch}')
+    return text
+
 _TRANSPORT_ICONS: dict[str, str] = {
     "plane": "✈️",
     "car": "🚗",
@@ -56,11 +62,11 @@ async def checklist_reminder_job(context: CallbackContext) -> None:
     lines = ["📋 *Incomplete checklists*"]
     for key, cls in groups.items():
         group_name = col_name.get(key, "🗂 Other")
-        lines.append(f"\n🧳 *{group_name}*")
+        lines.append(f"\n🧳 *{_esc(group_name)}*")
         for cl in cls:
-            lines.append(f"  ☐ {cl['name']}")
+            lines.append(f"  ☐ {_esc(cl['name'])}")
             for it in cl["_incomplete"]:
-                lines.append(f"    • {it['name']}")
+                lines.append(f"    • {_esc(it['name'])}")
 
     await context.bot.send_message(
         chat_id=chat_id,
@@ -114,7 +120,7 @@ async def evening_digest_job(context: CallbackContext) -> None:
             continue
         if start <= tomorrow <= end:
             name = loc_name.get(v.get("location", ""), "Location")
-            events.append({"sort_key": v.get("start_date", ""), "text": f"📍 {name}"})
+            events.append({"sort_key": v.get("start_date", ""), "text": f"📍 {_esc(name)}"})
 
     for t in transports:
         dep = t.get("date", "")
@@ -130,8 +136,8 @@ async def evening_digest_job(context: CallbackContext) -> None:
         name = t.get("name") or t.get("type", "Transport")
         frm = t.get("from_location") or ""
         to = t.get("to_location") or ""
-        route = f" {frm} → {to}" if frm and to else ""
-        events.append({"sort_key": dep, "text": f"{icon} {name}{route}"})
+        route = f" {_esc(frm)} → {_esc(to)}" if frm and to else ""
+        events.append({"sort_key": dep, "text": f"{icon} {_esc(name)}{route}"})
 
     if not events:
         return
