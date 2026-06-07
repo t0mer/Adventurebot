@@ -99,6 +99,16 @@ async def test_reco_from_location_no_coords_sends_error():
     assert "no coordinates" in call_text.lower()
 
 
+async def test_reco_from_location_get_location_api_error():
+    upd = make_callback_update("reco:loc:loc1")
+    ctx = make_context()
+    ctx.bot_data["client"].get_location.side_effect = httpx.HTTPError("boom")
+    result = await rh.handle_reco_from_location(upd, ctx)
+    assert result == ConversationHandler.END
+    text = upd.callback_query.edit_message_text.call_args.args[0]
+    assert "could not fetch" in text.lower()
+
+
 # ─── Entry B: from trip ───────────────────────────────────────────────────────
 
 async def test_reco_from_trip_prompts_for_location():
