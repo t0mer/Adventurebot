@@ -104,6 +104,22 @@ class AdventureLogClient:
         resp = await self._get("/api/search", params={"query": query})
         return resp.json()
 
+    async def get_recommendations(
+        self, lat: float, lon: float, radius_m: int, category: str
+    ) -> list[dict]:
+        resp = await self._get(
+            "/api/recommendations/query/",
+            params={
+                "lat": lat,
+                "lon": lon,
+                "radius": radius_m,
+                "category": category,
+                "sources": "google",
+            },
+        )
+        resp.raise_for_status()
+        return resp.json().get("results", [])[:10]
+
     async def download_url(self, url: str) -> bytes:
         from urllib.parse import urlparse
         base_host = urlparse(self._base).hostname or ""
