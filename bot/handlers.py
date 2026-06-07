@@ -56,9 +56,13 @@ async def handle_trip_itinerary(update: Update, ctx: ContextTypes.DEFAULT_TYPE) 
     ctx.user_data["trip_index"] = index
 
     locations = await _client(ctx).get_locations()
-    visits = await _client(ctx).get_visits()
-
     loc_index = {loc["id"]: loc for loc in locations}
+
+    trip_locs = [loc for loc in locations if trip_id in loc.get("collections", [])]
+    visits = sorted(
+        (v for loc in trip_locs for v in loc.get("visits", [])),
+        key=lambda v: v.get("start_date", ""),
+    )
 
     if not visits:
         text = "No itinerary found for this trip."
