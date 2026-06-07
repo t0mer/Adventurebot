@@ -26,6 +26,21 @@ class AdventureLogClient:
         if m:
             self._session_id = m.group(1)
 
+    async def _write(self, method: str, path: str, data: dict) -> httpx.Response:
+        if not self._session_id:
+            await self._ensure_auth()
+        url = f"{self._base}/{path.lstrip('/')}"
+        headers = {"Cookie": f"sessionid={self._session_id}", "Content-Type": "application/json"}
+        async with httpx.AsyncClient() as http:
+            resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
+        if resp.status_code == 401:
+            self._session_id = None
+            await self._ensure_auth()
+            headers["Cookie"] = f"sessionid={self._session_id}"
+            async with httpx.AsyncClient() as http:
+                resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
+        return resp
+
     async def _get(self, path: str, params: dict | None = None) -> httpx.Response:
         if not self._session_id:
             await self._ensure_auth()
@@ -67,6 +82,19 @@ class AdventureLogClient:
         resp = await self._get("/api/transportations")
         data = resp.json()
         return data if isinstance(data, list) else data.get("results", [])
+
+    async def get_checklists(self) -> list[dict]:
+        resp = await self._get("/api/checklists")
+        data = resp.json()
+        return data if isinstance(data, list) else data.get("results", [])
+
+    async def get_checklist(self, cl_id: str) -> dict:
+        resp = await self._get(f"/api/checklists/{cl_id}")
+        return resp.json()
+
+    async def patch_checklist_items(self, cl_id: str, items: list[dict]) -> dict:
+        resp = await self._write("patch", f"/api/checklists/{cl_id}/", {"items": items})
+        return resp.json()
 
     async def search(self, query: str) -> dict:
         resp = await self._get("/api/search", params={"query": query})
