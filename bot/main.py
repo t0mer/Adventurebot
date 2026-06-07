@@ -47,6 +47,7 @@ from .scheduler_handlers import (
     SETTING_SCHED_TIME,
     SETTING_SCHED_TZ,
 )
+from .recommendations_handlers import build_reco_conv
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -101,6 +102,8 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
         fallbacks=[CommandHandler("start", start)],
     )
 
+    reco_conv = build_reco_conv()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schedulers", handle_schedulers_menu))
     app.add_handler(search_conv)
@@ -108,6 +111,7 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
     app.add_handler(cl_add_conv)
     app.add_handler(sched_time_conv)
     app.add_handler(sched_tz_conv)
+    app.add_handler(reco_conv)
     app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:main$"))
     app.add_handler(CallbackQueryHandler(handle_trips_list, pattern="^trips:list$"))
     app.add_handler(CallbackQueryHandler(handle_trip_category, pattern=r"^tc:"))
