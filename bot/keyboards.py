@@ -220,7 +220,7 @@ def location_detail(
     rows.append([InlineKeyboardButton("Download docs", callback_data=f"ldoc:{loc_id}")])
     if lat is not None and lon is not None:
         rows.append([InlineKeyboardButton(
-            "📍 Recommendations nearby",
+            "🔍 Recommendations nearby",
             callback_data=f"reco:loc:{loc_id}",
         )])
     rows += [

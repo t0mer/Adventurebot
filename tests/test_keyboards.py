@@ -11,8 +11,6 @@ from bot.keyboards import (
     date_prompt,
     schedulers_menu,
     scheduler_detail,
-)
-from bot.keyboards import (
     reco_category_keyboard,
     reco_radius_keyboard,
     trip_category,
