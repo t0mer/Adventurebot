@@ -2,7 +2,7 @@ import datetime
 import logging
 import os
 import re
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
@@ -12,6 +12,8 @@ from .keyboards import schedulers_menu, scheduler_detail
 from .scheduler_jobs import checklist_reminder_job, evening_digest_job
 
 logger = logging.getLogger(__name__)
+
+_VALID_TIMEZONES: frozenset[str] = frozenset(available_timezones())
 
 SETTING_SCHED_TIME = 10
 SETTING_SCHED_TZ = 11
@@ -31,6 +33,10 @@ def _reschedule(app, name: str) -> None:
     for job in app.job_queue.get_jobs_by_name(name):
         job.schedule_removal()
 
+    if name not in _JOB_FUNCTIONS:
+        logger.warning("_reschedule: unknown scheduler name %r, skipping", name)
+        return
+
     config = scheduler_store.load()
     entry = scheduler_store.get_scheduler(config, name)
 
@@ -42,7 +48,11 @@ def _reschedule(app, name: str) -> None:
         tz = ZoneInfo(tz_name)
     except ZoneInfoNotFoundError:
         logger.warning("Invalid timezone %r for %r, falling back to TZ env", tz_name, name)
-        tz = ZoneInfo(os.environ.get("TZ", "UTC"))
+        fallback_tz = os.environ.get("TZ", "UTC")
+        try:
+            tz = ZoneInfo(fallback_tz)
+        except ZoneInfoNotFoundError:
+            tz = ZoneInfo("UTC")
 
     hh, mm = map(int, entry["time"].split(":"))
     t = datetime.time(hh, mm, tzinfo=tz)
@@ -129,10 +139,9 @@ async def handle_scheduler_set_tz_go(update: Update, ctx: ContextTypes.DEFAULT_T
 
 
 async def handle_scheduler_set_tz_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    from zoneinfo import available_timezones
     tz = update.message.text.strip()
     name = ctx.user_data.get("sched_name", "")
-    if tz not in available_timezones():
+    if tz not in _VALID_TIMEZONES:
         await update.message.reply_text(
             "Unknown timezone. Try a name like Asia/Jerusalem or Europe/London."
         )
