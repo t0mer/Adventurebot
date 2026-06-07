@@ -99,7 +99,12 @@ def trips_list(collections: list[dict]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def trip_category(trip_id: str, has_locations: bool, has_transport: bool) -> InlineKeyboardMarkup:
+def trip_category(
+    trip_id: str,
+    has_locations: bool,
+    has_transport: bool,
+    has_checklists: bool = False,
+) -> InlineKeyboardMarkup:
     rows = []
     if has_locations:
         rows.append([InlineKeyboardButton("📍 Locations", callback_data=f"tl:{trip_id}:0")])
@@ -107,7 +112,35 @@ def trip_category(trip_id: str, has_locations: bool, has_transport: bool) -> Inl
         rows.append([InlineKeyboardButton("✈️ Transportation", callback_data=f"tt:{trip_id}:0")])
     if has_locations or has_transport:
         rows.append([InlineKeyboardButton("📅 Calendar", callback_data=f"cal:{trip_id}")])
+    if has_checklists:
+        rows.append([InlineKeyboardButton("📋 Checklists", callback_data=f"cllist:{trip_id}")])
     rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
+    return InlineKeyboardMarkup(rows)
+
+
+def checklist_list(trip_id: str, checklists: list[dict]) -> InlineKeyboardMarkup:
+    rows = []
+    for cl in checklists:
+        name = cl.get("name", "Checklist")
+        total = len(cl.get("items", []))
+        done = sum(1 for it in cl.get("items", []) if it.get("is_checked"))
+        label = f"📋 {name} ({done}/{total})"
+        rows.append([InlineKeyboardButton(label, callback_data=f"cl:{cl['id']}")])
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def checklist_detail(cl_id: str, trip_id: str, items: list[dict]) -> InlineKeyboardMarkup:
+    rows = []
+    for idx, item in enumerate(items):
+        check_icon = "✅" if item.get("is_checked") else "⬜"
+        name = item.get("name", "Item")
+        rows.append([
+            InlineKeyboardButton(f"{check_icon} {name}", callback_data=f"clc:{cl_id}:{idx}"),
+            InlineKeyboardButton("🗑️", callback_data=f"clr:{cl_id}:{idx}"),
+        ])
+    rows.append([InlineKeyboardButton("➕ Add item", callback_data=f"cladd:{cl_id}")])
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"cllist:{trip_id}")])
     return InlineKeyboardMarkup(rows)
 
 
