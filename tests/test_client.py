@@ -113,3 +113,34 @@ def test_find_visit_for_date_no_match():
     loc, visit = client.find_visit_for_date(visits, locations, date(2026, 8, 20))
     assert loc is None
     assert visit is None
+
+
+async def test_get_recommendations_returns_first_10(respx_mock):
+    respx_mock.post(f"{BASE}/login").mock(
+        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
+    )
+    results = [{"name": f"Place {i}", "rating": 4.0, "review_count": 100, "distance_km": i * 0.1, "google_maps_url": "https://g.co/map"} for i in range(15)]
+    respx_mock.get(f"{BASE}/api/recommendations/query").mock(
+        return_value=httpx.Response(200, json={"count": 15, "results": results})
+    )
+    client = make_client()
+    out = await client.get_recommendations(lat=32.0, lon=34.8, radius_m=10000, category="food")
+    assert len(out) == 10
+    assert out[0]["name"] == "Place 0"
+
+
+async def test_get_recommendations_passes_correct_params(respx_mock):
+    respx_mock.post(f"{BASE}/login").mock(
+        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
+    )
+    route = respx_mock.get(f"{BASE}/api/recommendations/query").mock(
+        return_value=httpx.Response(200, json={"count": 0, "results": []})
+    )
+    client = make_client()
+    await client.get_recommendations(lat=32.1, lon=34.9, radius_m=5000, category="tourism")
+    params = dict(route.calls[0].request.url.params)
+    assert params["lat"] == "32.1"
+    assert params["lon"] == "34.9"
+    assert params["radius"] == "5000"
+    assert params["category"] == "tourism"
+    assert params["sources"] == "google"

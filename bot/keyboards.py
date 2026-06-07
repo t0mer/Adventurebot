@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -25,6 +25,46 @@ def fmt_date(d: date) -> str:
     return f"{d.day:02d} {_MONTHS[d.month - 1]} {d.year}"
 
 
+def fmt_datetime(dt_str: str) -> str:
+    try:
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        return f"{dt.day:02d} {_MONTHS[dt.month - 1]} {dt.year}, {dt.hour:02d}:{dt.minute:02d}"
+    except (ValueError, AttributeError):
+        return dt_str[:16] if dt_str else ""
+
+
+_TRANSPORT_ICONS: dict[str, str] = {
+    "plane": "✈️",
+    "car": "🚗",
+    "train": "🚂",
+    "bus": "🚌",
+    "boat": "⛴️",
+    "ferry": "⛴️",
+    "bike": "🚲",
+    "walk": "🚶",
+}
+
+
+def fmt_transport(t: dict, index: int, total: int) -> str:
+    icon = _TRANSPORT_ICONS.get(t.get("type", ""), "🚌")
+    name = t.get("name") or t.get("type", "Transport")
+    lines = [f"{icon} {name} ({index + 1}/{total})"]
+    frm = t.get("from_location") or ""
+    to = t.get("to_location") or ""
+    flight = t.get("flight_number") or t.get("start_code") or ""
+    if frm or to:
+        route = f"{frm} → {to}" if frm and to else frm or to
+        lines.append(f"{flight + ': ' if flight else ''}{route}")
+    dep = t.get("date") or ""
+    if dep:
+        lines.append(fmt_datetime(dep))
+    price = t.get("price")
+    currency = t.get("price_currency") or ""
+    if price and float(price) > 0:
+        lines.append(f"💰 {price} {currency}".strip())
+    return "\n".join(lines)
+
+
 def fmt_date_range(start: date, end: date) -> str:
     if start.year == end.year:
         return f"{start.day:02d} {_MONTHS[start.month - 1]} – {end.day:02d} {_MONTHS[end.month - 1]} {end.year}"
@@ -38,6 +78,7 @@ def main_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("My Trips", callback_data="trips:list")],
         [InlineKeyboardButton("Search by keyword", callback_data="search:go")],
         [InlineKeyboardButton("Where was I on…", callback_data="date:go")],
+        [InlineKeyboardButton("⏰ Schedulers", callback_data="sched:menu")],
     ])
 
 
@@ -54,8 +95,57 @@ def trips_list(collections: list[dict]) -> InlineKeyboardMarkup:
                 label = f"{label}  ({fmt_date_range(s, e)})"
             except ValueError:
                 pass
-        rows.append([InlineKeyboardButton(label, callback_data=f"tl:{col['id']}:0")])
+        rows.append([InlineKeyboardButton(label, callback_data=f"tc:{col['id']}")])
     rows.append([InlineKeyboardButton("« Back", callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def trip_category(
+    trip_id: str,
+    has_locations: bool,
+    has_transport: bool,
+    has_checklists: bool = False,
+) -> InlineKeyboardMarkup:
+    rows = []
+    if has_locations:
+        rows.append([InlineKeyboardButton("📍 Locations", callback_data=f"tl:{trip_id}:0")])
+    if has_transport:
+        rows.append([InlineKeyboardButton("✈️ Transportation", callback_data=f"tt:{trip_id}:0")])
+    if has_locations or has_transport:
+        rows.append([InlineKeyboardButton("📅 Calendar", callback_data=f"cal:{trip_id}")])
+    if has_checklists:
+        rows.append([InlineKeyboardButton("📋 Checklists", callback_data=f"cllist:{trip_id}")])
+    rows.append([InlineKeyboardButton(
+        "🔍 Recommendations nearby",
+        callback_data=f"reco:trip:{trip_id}",
+    )])
+    rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
+    return InlineKeyboardMarkup(rows)
+
+
+def checklist_list(trip_id: str, checklists: list[dict]) -> InlineKeyboardMarkup:
+    rows = []
+    for cl in checklists:
+        name = cl.get("name", "Checklist")
+        total = len(cl.get("items", []))
+        done = sum(1 for it in cl.get("items", []) if it.get("is_checked"))
+        label = f"📋 {name} ({done}/{total})"
+        rows.append([InlineKeyboardButton(label, callback_data=f"cl:{cl['id']}")])
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def checklist_detail(cl_id: str, trip_id: str, items: list[dict]) -> InlineKeyboardMarkup:
+    rows = []
+    for idx, item in enumerate(items):
+        check_icon = "✅" if item.get("is_checked") else "⬜"
+        name = item.get("name", "Item")
+        rows.append([
+            InlineKeyboardButton(f"{check_icon} {name}", callback_data=f"clc:{cl_id}:{idx}"),
+            InlineKeyboardButton("🗑️", callback_data=f"clr:{cl_id}:{idx}"),
+        ])
+    rows.append([InlineKeyboardButton("➕ Add item", callback_data=f"cladd:{cl_id}")])
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"cllist:{trip_id}")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -85,15 +175,81 @@ def trip_itinerary(
     if nav:
         rows.append(nav)
 
-    rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
     return InlineKeyboardMarkup(rows)
 
 
-def location_detail(loc_id: str, trip_id: str, index: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Download docs", callback_data=f"ldoc:{loc_id}")],
+def calendar_list(trip_id: str, events: list[dict]) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(e["label"], callback_data=e["callback"])] for e in events]
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def transportation_item(trip_id: str, index: int, total: int) -> InlineKeyboardMarkup:
+    rows = []
+    nav = []
+    if index > 0:
+        nav.append(InlineKeyboardButton("‹ Prev", callback_data=f"tt:{trip_id}:{index - 1}"))
+    if index < total - 1:
+        nav.append(InlineKeyboardButton("Next ›", callback_data=f"tt:{trip_id}:{index + 1}"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def location_detail(
+    loc_id: str,
+    trip_id: str,
+    index: int,
+    lat: float | None = None,
+    lon: float | None = None,
+) -> InlineKeyboardMarkup:
+    rows = []
+    if lat is not None and lon is not None:
+        rows += [
+            [
+                InlineKeyboardButton("🍎 Apple Maps", url=f"https://maps.apple.com/?q={lat},{lon}"),
+                InlineKeyboardButton("🗺 Google Maps", url=f"https://maps.google.com/?q={lat},{lon}"),
+            ],
+            [
+                InlineKeyboardButton("🧭 Navigate (Apple)", url=f"https://maps.apple.com/?daddr={lat},{lon}"),
+                InlineKeyboardButton("🧭 Navigate (Google)", url=f"https://maps.google.com/?daddr={lat},{lon}"),
+            ],
+        ]
+    rows.append([InlineKeyboardButton("Download docs", callback_data=f"ldoc:{loc_id}")])
+    if lat is not None and lon is not None:
+        rows.append([InlineKeyboardButton(
+            "🔍 Recommendations nearby",
+            callback_data=f"reco:loc:{loc_id}",
+        )])
+    rows += [
         [InlineKeyboardButton("« Itinerary", callback_data=f"tl:{trip_id}:{index}")],
         [InlineKeyboardButton("« Trips", callback_data="trips:list")],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+def reco_category_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🍔 Food", callback_data="reco:cat:food"),
+            InlineKeyboardButton("🛌 Lodging", callback_data="reco:cat:lodging"),
+            InlineKeyboardButton("🏛 Tourism", callback_data="reco:cat:tourism"),
+        ],
+        [InlineKeyboardButton("Cancel", callback_data="reco:cancel")],
+    ])
+
+
+def reco_radius_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("5 km", callback_data="reco:rad:5"),
+            InlineKeyboardButton("10 km", callback_data="reco:rad:10"),
+            InlineKeyboardButton("20 km", callback_data="reco:rad:20"),
+            InlineKeyboardButton("50 km", callback_data="reco:rad:50"),
+        ],
+        [InlineKeyboardButton("Cancel", callback_data="reco:cancel")],
     ])
 
 
@@ -106,4 +262,27 @@ def search_prompt() -> InlineKeyboardMarkup:
 def date_prompt() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Cancel", callback_data="menu:main")],
+    ])
+
+
+def schedulers_menu(config: dict) -> InlineKeyboardMarkup:
+    rows = []
+    for name, label in [
+        ("checklist_reminder", "📋 Checklist reminder"),
+        ("evening_digest", "🌙 Evening digest"),
+    ]:
+        entry = config.get(name, {})
+        status = "✓ ON" if entry.get("enabled") else "✗ OFF"
+        rows.append([InlineKeyboardButton(f"{label}  {status}", callback_data=f"sched:detail:{name}")])
+    rows.append([InlineKeyboardButton("« Main menu", callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def scheduler_detail(name: str, entry: dict) -> InlineKeyboardMarkup:
+    toggle_label = "Disable" if entry.get("enabled") else "Enable"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(toggle_label, callback_data=f"sched:toggle:{name}")],
+        [InlineKeyboardButton("Set time", callback_data=f"sched:settime:{name}")],
+        [InlineKeyboardButton("Set timezone", callback_data=f"sched:settz:{name}")],
+        [InlineKeyboardButton("« Schedulers", callback_data="sched:menu")],
     ])
