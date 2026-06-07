@@ -9,6 +9,8 @@ from bot.keyboards import (
     location_detail,
     search_prompt,
     date_prompt,
+    schedulers_menu,
+    scheduler_detail,
 )
 from telegram import InlineKeyboardMarkup
 
@@ -180,3 +182,56 @@ def test_date_prompt_returns_markup():
     assert isinstance(kb, InlineKeyboardMarkup)
     flat = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "menu:main" in flat
+
+
+def test_main_menu_has_schedulers_button():
+    kb = main_menu()
+    flat = [btn for row in kb.inline_keyboard for btn in row]
+    data = [btn.callback_data for btn in flat]
+    assert "sched:menu" in data
+
+
+def test_schedulers_menu_shows_both_schedulers():
+    config = {
+        "checklist_reminder": {"enabled": True, "time": "09:00", "timezone": None},
+        "evening_digest": {"enabled": False, "time": "20:00", "timezone": None},
+    }
+    kb = schedulers_menu(config)
+    flat = [btn for row in kb.inline_keyboard for btn in row]
+    data = [btn.callback_data for btn in flat]
+    assert "sched:detail:checklist_reminder" in data
+    assert "sched:detail:evening_digest" in data
+    assert "menu:main" in data
+
+
+def test_schedulers_menu_on_label_includes_status():
+    config = {
+        "checklist_reminder": {"enabled": True, "time": "09:00", "timezone": None},
+        "evening_digest": {"enabled": False, "time": "20:00", "timezone": None},
+    }
+    kb = schedulers_menu(config)
+    texts = [btn.text for row in kb.inline_keyboard for btn in row]
+    assert any("ON" in t for t in texts)
+    assert any("OFF" in t for t in texts)
+
+
+def test_scheduler_detail_enabled_shows_disable_button():
+    entry = {"enabled": True, "time": "09:00", "timezone": "Asia/Jerusalem"}
+    kb = scheduler_detail("checklist_reminder", entry)
+    flat = [btn for row in kb.inline_keyboard for btn in row]
+    texts = [btn.text for btn in flat]
+    data = [btn.callback_data for btn in flat]
+    assert any("Disable" in t for t in texts)
+    assert "sched:toggle:checklist_reminder" in data
+    assert "sched:settime:checklist_reminder" in data
+    assert "sched:settz:checklist_reminder" in data
+    assert "sched:menu" in data
+
+
+def test_scheduler_detail_disabled_shows_enable_button():
+    entry = {"enabled": False, "time": "09:00", "timezone": None}
+    kb = scheduler_detail("checklist_reminder", entry)
+    flat = [btn for row in kb.inline_keyboard for btn in row]
+    texts = [btn.text for btn in flat]
+    assert any("Enable" in t for t in texts)
+    assert not any("Disable" in t for t in texts)

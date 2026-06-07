@@ -78,6 +78,7 @@ def main_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("My Trips", callback_data="trips:list")],
         [InlineKeyboardButton("Search by keyword", callback_data="search:go")],
         [InlineKeyboardButton("Where was I on…", callback_data="date:go")],
+        [InlineKeyboardButton("⏰ Schedulers", callback_data="sched:menu")],
     ])
 
 
@@ -229,4 +230,27 @@ def search_prompt() -> InlineKeyboardMarkup:
 def date_prompt() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Cancel", callback_data="menu:main")],
+    ])
+
+
+def schedulers_menu(config: dict) -> InlineKeyboardMarkup:
+    rows = []
+    for name, label in [
+        ("checklist_reminder", "📋 Checklist reminder"),
+        ("evening_digest", "🌙 Evening digest"),
+    ]:
+        entry = config.get(name, {})
+        status = "✓ ON" if entry.get("enabled") else "✗ OFF"
+        rows.append([InlineKeyboardButton(f"{label}  {status}", callback_data=f"sched:detail:{name}")])
+    rows.append([InlineKeyboardButton("« Main menu", callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def scheduler_detail(name: str, entry: dict) -> InlineKeyboardMarkup:
+    toggle_label = "Disable" if entry.get("enabled") else "Enable"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(toggle_label, callback_data=f"sched:toggle:{name}")],
+        [InlineKeyboardButton("Set time", callback_data=f"sched:settime:{name}")],
+        [InlineKeyboardButton("Set timezone", callback_data=f"sched:settz:{name}")],
+        [InlineKeyboardButton("« Schedulers", callback_data="sched:menu")],
     ])
