@@ -420,12 +420,10 @@ async def handle_checklist_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     cl_id = parts[1]
     idx = int(parts[2])
     trip_id = ctx.user_data.get("trip_id", "")
-
     cl = await _client(ctx).get_checklist(cl_id)
     items = cl.get("items", [])
 
     if 0 <= idx < len(items):
-        item = items[idx]
         new_items = []
         for i, it in enumerate(items):
             entry = {"name": it["name"], "is_checked": it["is_checked"]}
