@@ -29,6 +29,17 @@ async def sorry_unauthorized(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> 
     raise ApplicationHandlerStop
 
 
+async def sorry_unauthorized_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    allowed: frozenset[str] = ctx.bot_data.get("allowed_ids", frozenset())
+    if not allowed:
+        return
+    chat_id = str(update.effective_chat.id) if update.effective_chat else None
+    if chat_id in allowed:
+        return
+    await update.callback_query.answer("Sorry, this bot is private.", show_alert=True)
+    raise ApplicationHandlerStop
+
+
 def _esc(text: str) -> str:
     for ch in ('\\', '_', '*', '`', '['):
         text = text.replace(ch, f'\\{ch}')

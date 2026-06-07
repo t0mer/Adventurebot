@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from bot import handlers
 from bot.handlers import (
     sorry_unauthorized,
+    sorry_unauthorized_cb,
     start,
     handle_menu,
     handle_trips_list,
@@ -306,3 +307,27 @@ async def test_sorry_unauthorized_callback_only_stops():
     with pytest.raises(ApplicationHandlerStop):
         await sorry_unauthorized(upd, ctx)
     upd.callback_query.answer.assert_not_awaited()
+
+
+async def test_sorry_unauthorized_cb_blocks_unauthorized():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    ctx.bot_data["allowed_ids"] = frozenset({"999"})
+    with pytest.raises(ApplicationHandlerStop):
+        await sorry_unauthorized_cb(upd, ctx)
+    upd.callback_query.answer.assert_awaited_once()
+
+
+async def test_sorry_unauthorized_cb_passes_authorized():
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    ctx.bot_data["allowed_ids"] = frozenset({"100"})
+    await sorry_unauthorized_cb(upd, ctx)  # must not raise
+
+
+async def test_sorry_unauthorized_cb_passes_when_unrestricted():
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    ctx.bot_data["allowed_ids"] = frozenset()
+    await sorry_unauthorized_cb(upd, ctx)  # must not raise
