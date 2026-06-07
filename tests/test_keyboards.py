@@ -116,6 +116,52 @@ def test_location_detail_returns_markup():
     assert any(d.startswith("ldoc:l1") for d in flat)
 
 
+def test_location_detail_no_coords_has_no_map_buttons():
+    kb = location_detail("l1", trip_id="c1", index=0)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row]
+    assert all(u is None for u in all_urls)
+
+
+def test_location_detail_with_coords_has_apple_view_button():
+    kb = location_detail("l1", trip_id="c1", index=0, lat=40.634, lon=14.6027)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row if btn.url]
+    assert any("maps.apple.com" in u and "q=40.634,14.6027" in u for u in all_urls)
+
+
+def test_location_detail_with_coords_has_google_view_button():
+    kb = location_detail("l1", trip_id="c1", index=0, lat=40.634, lon=14.6027)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row if btn.url]
+    assert any("maps.google.com" in u and "q=40.634,14.6027" in u for u in all_urls)
+
+
+def test_location_detail_with_coords_has_apple_navigate_button():
+    kb = location_detail("l1", trip_id="c1", index=0, lat=40.634, lon=14.6027)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row if btn.url]
+    assert any("maps.apple.com" in u and "daddr=40.634,14.6027" in u for u in all_urls)
+
+
+def test_location_detail_with_coords_has_google_navigate_button():
+    kb = location_detail("l1", trip_id="c1", index=0, lat=40.634, lon=14.6027)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row if btn.url]
+    assert any("maps.google.com" in u and "daddr=40.634,14.6027" in u for u in all_urls)
+
+
+def test_location_detail_with_coords_map_rows_come_before_docs_button():
+    kb = location_detail("l1", trip_id="c1", index=0, lat=40.634, lon=14.6027)
+    rows = kb.inline_keyboard
+    # first two rows are map rows (url buttons), docs row comes after
+    assert all(btn.url for btn in rows[0])
+    assert all(btn.url for btn in rows[1])
+    assert rows[2][0].callback_data.startswith("ldoc:")
+
+
+def test_location_detail_with_partial_coords_has_no_map_buttons():
+    # lat without lon — should not render map buttons
+    kb = location_detail("l1", trip_id="c1", index=0, lat=40.634, lon=None)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row]
+    assert all(u is None for u in all_urls)
+
+
 def test_search_prompt_returns_markup():
     kb = search_prompt()
     assert isinstance(kb, InlineKeyboardMarkup)

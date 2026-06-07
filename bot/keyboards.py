@@ -193,12 +193,31 @@ def transportation_item(trip_id: str, index: int, total: int) -> InlineKeyboardM
     return InlineKeyboardMarkup(rows)
 
 
-def location_detail(loc_id: str, trip_id: str, index: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
+def location_detail(
+    loc_id: str,
+    trip_id: str,
+    index: int,
+    lat: float | None = None,
+    lon: float | None = None,
+) -> InlineKeyboardMarkup:
+    rows = []
+    if lat is not None and lon is not None:
+        rows += [
+            [
+                InlineKeyboardButton("🍎 Apple Maps", url=f"https://maps.apple.com/?q={lat},{lon}"),
+                InlineKeyboardButton("🗺 Google Maps", url=f"https://maps.google.com/?q={lat},{lon}"),
+            ],
+            [
+                InlineKeyboardButton("🧭 Navigate (Apple)", url=f"https://maps.apple.com/?daddr={lat},{lon}"),
+                InlineKeyboardButton("🧭 Navigate (Google)", url=f"https://maps.google.com/?daddr={lat},{lon}"),
+            ],
+        ]
+    rows += [
         [InlineKeyboardButton("Download docs", callback_data=f"ldoc:{loc_id}")],
         [InlineKeyboardButton("« Itinerary", callback_data=f"tl:{trip_id}:{index}")],
         [InlineKeyboardButton("« Trips", callback_data="trips:list")],
-    ])
+    ]
+    return InlineKeyboardMarkup(rows)
 
 
 def search_prompt() -> InlineKeyboardMarkup:
