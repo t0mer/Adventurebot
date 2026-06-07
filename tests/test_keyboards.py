@@ -162,6 +162,12 @@ def test_location_detail_with_partial_coords_has_no_map_buttons():
     assert all(u is None for u in all_urls)
 
 
+def test_location_detail_with_only_lon_has_no_map_buttons():
+    kb = location_detail("l1", trip_id="c1", index=0, lat=None, lon=14.6027)
+    all_urls = [btn.url for row in kb.inline_keyboard for btn in row]
+    assert all(u is None for u in all_urls)
+
+
 def test_search_prompt_returns_markup():
     kb = search_prompt()
     assert isinstance(kb, InlineKeyboardMarkup)

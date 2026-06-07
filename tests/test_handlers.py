@@ -203,3 +203,81 @@ async def test_handle_date_text_no_visit():
     result = await handle_date_text(upd, ctx)
     assert result == ConversationHandler.END
     upd.message.reply_text.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_location_detail_passes_coords_to_keyboard(monkeypatch):
+    """When the location has lat/lon, the keyboard should contain map URL buttons."""
+    from bot import handlers
+    from unittest.mock import AsyncMock, MagicMock
+
+    loc = {
+        "id": "l1",
+        "name": "Amalfi Coast",
+        "description": "",
+        "rating": 5,
+        "latitude": "40.634",
+        "longitude": "14.6027",
+        "link": "",
+        "attachments": [],
+    }
+
+    mock_client = MagicMock()
+    mock_client.get_location = AsyncMock(return_value=loc)
+    monkeypatch.setattr(handlers, "_client", lambda ctx: mock_client)
+
+    update = MagicMock()
+    update.callback_query.data = "ld:l1"
+    update.callback_query.answer = AsyncMock()
+    update.callback_query.edit_message_text = AsyncMock()
+
+    ctx = MagicMock()
+    ctx.user_data = {"trip_id": "c1", "trip_index": 0}
+
+    await handlers.handle_location_detail(update, ctx)
+
+    call_kwargs = update.callback_query.edit_message_text.call_args.kwargs
+    markup = call_kwargs["reply_markup"]
+    all_urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
+
+    assert any("maps.apple.com" in u and "q=40.634,14.6027" in u for u in all_urls)
+    assert any("maps.google.com" in u and "q=40.634,14.6027" in u for u in all_urls)
+    assert any("maps.apple.com" in u and "daddr=40.634,14.6027" in u for u in all_urls)
+    assert any("maps.google.com" in u and "daddr=40.634,14.6027" in u for u in all_urls)
+
+
+@pytest.mark.asyncio
+async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
+    """When the location has no coordinates, the keyboard must not contain map URL buttons."""
+    from bot import handlers
+    from unittest.mock import AsyncMock, MagicMock
+
+    loc = {
+        "id": "l1",
+        "name": "Unknown Place",
+        "description": "",
+        "rating": None,
+        "latitude": None,
+        "longitude": None,
+        "link": "",
+        "attachments": [],
+    }
+
+    mock_client = MagicMock()
+    mock_client.get_location = AsyncMock(return_value=loc)
+    monkeypatch.setattr(handlers, "_client", lambda ctx: mock_client)
+
+    update = MagicMock()
+    update.callback_query.data = "ld:l1"
+    update.callback_query.answer = AsyncMock()
+    update.callback_query.edit_message_text = AsyncMock()
+
+    ctx = MagicMock()
+    ctx.user_data = {"trip_id": "c1", "trip_index": 0}
+
+    await handlers.handle_location_detail(update, ctx)
+
+    call_kwargs = update.callback_query.edit_message_text.call_args.kwargs
+    markup = call_kwargs["reply_markup"]
+    all_urls = [btn.url for row in markup.inline_keyboard for btn in row]
+    assert all(u is None for u in all_urls)
