@@ -6,8 +6,9 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
-    transportation_item, location_detail, search_prompt, date_prompt,
-    parse_date, fmt_date, fmt_date_range, fmt_transport,
+    calendar_event, transportation_item, location_detail,
+    search_prompt, date_prompt,
+    parse_date, fmt_date, fmt_date_range, fmt_datetime, fmt_transport,
 )
 
 SEARCHING = 0
@@ -70,6 +71,76 @@ async def handle_trip_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
     await update.callback_query.edit_message_text(
         "What would you like to see?",
         reply_markup=trip_category(trip_id, has_locations, has_transport),
+    )
+
+
+_TRANSPORT_ICONS: dict[str, str] = {
+    "plane": "✈️", "car": "🚗", "train": "🚂",
+    "bus": "🚌", "boat": "⛴️", "ferry": "⛴️",
+    "bike": "🚲", "walk": "🚶",
+}
+
+
+def _build_calendar(locations: list[dict], transports: list[dict], trip_id: str) -> list[dict]:
+    from datetime import date as _date
+    events = []
+
+    for loc in locations:
+        if trip_id not in loc.get("collections", []):
+            continue
+        for visit in loc.get("visits", []):
+            dt = visit.get("start_date", "")
+            try:
+                s = _date.fromisoformat(dt[:10])
+                e = _date.fromisoformat(visit.get("end_date", "")[:10])
+                date_str = fmt_date_range(s, e)
+            except (ValueError, TypeError):
+                date_str = dt[:10]
+            events.append({"dt": dt, "text": f"📍 {loc.get('name', 'Unknown')}\n{date_str}"})
+
+    for t in transports:
+        if t.get("collection") != trip_id:
+            continue
+        dt = t.get("date", "")
+        icon = _TRANSPORT_ICONS.get(t.get("type", ""), "🚌")
+        name = t.get("name") or t.get("type", "Transport")
+        frm = t.get("from_location") or ""
+        to = t.get("to_location") or ""
+        flight = t.get("flight_number") or t.get("start_code") or ""
+        route = f"{frm} → {to}" if frm and to else frm or to
+        lines = [f"{icon} {name}"]
+        if route:
+            lines.append(f"{flight + ': ' if flight else ''}{route}")
+        if dt:
+            lines.append(fmt_datetime(dt))
+        events.append({"dt": dt, "text": "\n".join(lines)})
+
+    return sorted(events, key=lambda e: e["dt"])
+
+
+async def handle_calendar(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    parts = update.callback_query.data.split(":")
+    trip_id = parts[1]
+    index = int(parts[2])
+
+    locations, transports = await asyncio.gather(
+        _client(ctx).get_locations(),
+        _client(ctx).get_transportations(),
+    )
+    events = _build_calendar(locations, transports, trip_id)
+
+    if not events:
+        await update.callback_query.edit_message_text(
+            "No events found for this trip.",
+            reply_markup=calendar_event(trip_id, 0, 0),
+        )
+        return
+
+    index = max(0, min(index, len(events) - 1))
+    await update.callback_query.edit_message_text(
+        events[index]["text"],
+        reply_markup=calendar_event(trip_id, index, len(events)),
     )
 
 

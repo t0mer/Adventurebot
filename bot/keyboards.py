@@ -105,6 +105,8 @@ def trip_category(trip_id: str, has_locations: bool, has_transport: bool) -> Inl
         rows.append([InlineKeyboardButton("📍 Locations", callback_data=f"tl:{trip_id}:0")])
     if has_transport:
         rows.append([InlineKeyboardButton("✈️ Transportation", callback_data=f"tt:{trip_id}:0")])
+    if has_locations or has_transport:
+        rows.append([InlineKeyboardButton("📅 Calendar", callback_data=f"cal:{trip_id}:0")])
     rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
     return InlineKeyboardMarkup(rows)
 
@@ -135,6 +137,19 @@ def trip_itinerary(
     if nav:
         rows.append(nav)
 
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def calendar_event(trip_id: str, index: int, total: int) -> InlineKeyboardMarkup:
+    rows = []
+    nav = []
+    if index > 0:
+        nav.append(InlineKeyboardButton("‹ Prev", callback_data=f"cal:{trip_id}:{index - 1}"))
+    if index < total - 1:
+        nav.append(InlineKeyboardButton("Next ›", callback_data=f"cal:{trip_id}:{index + 1}"))
+    if nav:
+        rows.append(nav)
     rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
     return InlineKeyboardMarkup(rows)
 
