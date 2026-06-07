@@ -108,7 +108,7 @@ class AdventureLogClient:
         self, lat: float, lon: float, radius_m: int, category: str
     ) -> list[dict]:
         resp = await self._get(
-            "/api/recommendations/query/",
+            "/api/recommendations/query",
             params={
                 "lat": lat,
                 "lon": lon,

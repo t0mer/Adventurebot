@@ -120,7 +120,7 @@ async def test_get_recommendations_returns_first_10(respx_mock):
         return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
     )
     results = [{"name": f"Place {i}", "rating": 4.0, "review_count": 100, "distance_km": i * 0.1, "google_maps_url": "https://g.co/map"} for i in range(15)]
-    respx_mock.get(f"{BASE}/api/recommendations/query/").mock(
+    respx_mock.get(f"{BASE}/api/recommendations/query").mock(
         return_value=httpx.Response(200, json={"count": 15, "results": results})
     )
     client = make_client()
@@ -133,7 +133,7 @@ async def test_get_recommendations_passes_correct_params(respx_mock):
     respx_mock.post(f"{BASE}/login").mock(
         return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
     )
-    route = respx_mock.get(f"{BASE}/api/recommendations/query/").mock(
+    route = respx_mock.get(f"{BASE}/api/recommendations/query").mock(
         return_value=httpx.Response(200, json={"count": 0, "results": []})
     )
     client = make_client()
