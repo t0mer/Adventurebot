@@ -1,4 +1,6 @@
-from telegram import Update
+import io
+
+from telegram import InputFile, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from .keyboards import (
@@ -135,8 +137,15 @@ async def handle_location_docs(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
     for att in attachments:
         url = att.get("file") or att.get("url") or ""
         name = att.get("name") or "document"
-        if url:
-            await ctx.bot.send_document(chat_id=chat_id, document=url, caption=name)
+        if not url:
+            continue
+        data = await _client(ctx).download_url(url)
+        filename = url.split("/")[-1] or name
+        await ctx.bot.send_document(
+            chat_id=chat_id,
+            document=InputFile(io.BytesIO(data), filename=filename),
+            caption=name,
+        )
 
 
 # ─── search conversation ──────────────────────────────────────────────────────

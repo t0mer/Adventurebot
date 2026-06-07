@@ -67,6 +67,22 @@ class AdventureLogClient:
         resp = await self._get("/api/search", params={"query": query})
         return resp.json()
 
+    async def download_url(self, url: str) -> bytes:
+        from urllib.parse import urlparse
+        base_host = urlparse(self._base).hostname or ""
+        url_host = urlparse(url).hostname or ""
+        if url_host.lower().rstrip(".") != base_host.lower().rstrip("."):
+            raise ValueError(f"Refusing to fetch attachment from untrusted host: {url_host!r}")
+        if not self._session_id:
+            await self._ensure_auth()
+        async with httpx.AsyncClient() as http:
+            resp = await http.get(
+                url,
+                headers={"Cookie": f"sessionid={self._session_id}"},
+                follow_redirects=False,
+            )
+        return resp.content
+
     def find_visit_for_date(
         self, visits: list[dict], locations: list[dict], target: date
     ) -> tuple[dict | None, dict | None]:
