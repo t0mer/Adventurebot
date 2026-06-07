@@ -1,4 +1,5 @@
 """Handler unit tests using PTB's Application test utilities."""
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from telegram import Update, User, Chat, Message, CallbackQuery, InlineKeyboardMarkup
@@ -282,5 +283,26 @@ async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
 async def test_start_stores_chat_id_in_bot_data():
     upd = make_update_with_message("/start")
     ctx = make_context()
-    await start(upd, ctx)
+    with patch.dict("os.environ", {}, clear=False):
+        os.environ.pop("OWNER_CHAT_ID", None)
+        await start(upd, ctx)
+    assert ctx.bot_data.get("chat_id") == 100
+
+
+async def test_start_rejects_unauthorized_chat():
+    upd = make_update_with_message("/start")
+    ctx = make_context()
+    with patch.dict("os.environ", {"OWNER_CHAT_ID": "999"}):
+        await start(upd, ctx)
+    assert ctx.bot_data.get("chat_id") is None
+    upd.message.reply_text.assert_awaited_once()
+    text = upd.message.reply_text.call_args.args[0]
+    assert "private" in text.lower() or "Sorry" in text
+
+
+async def test_start_allows_authorized_chat():
+    upd = make_update_with_message("/start")
+    ctx = make_context()
+    with patch.dict("os.environ", {"OWNER_CHAT_ID": "100"}):
+        await start(upd, ctx)
     assert ctx.bot_data.get("chat_id") == 100

@@ -1,5 +1,6 @@
 import asyncio
 import io
+import os
 
 from telegram import InputFile, Update
 from telegram.ext import ContextTypes, ConversationHandler
@@ -24,7 +25,11 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
 # ─── entry point ─────────────────────────────────────────────────────────────
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    ctx.bot_data.setdefault("chat_id", update.effective_chat.id)
+    owner_id = os.environ.get("OWNER_CHAT_ID", "").strip()
+    if owner_id and str(update.effective_chat.id) != owner_id:
+        await update.message.reply_text("Sorry, this bot is private.")
+        return
+    ctx.bot_data["chat_id"] = update.effective_chat.id
     await update.message.reply_text(
         "Welcome! What would you like to do?",
         reply_markup=main_menu(),
