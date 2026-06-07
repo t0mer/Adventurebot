@@ -105,6 +105,7 @@ async def handle_location_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     if desc:
         lines.append(desc[:300])
     if lat and lon:
+        lat, lon = float(lat), float(lon)
         lines.append(f"📍 [{lat:.4f}, {lon:.4f}](https://maps.google.com/?q={lat},{lon})")
     if link:
         lines.append(f"[More info]({link})")
