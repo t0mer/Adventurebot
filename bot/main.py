@@ -25,8 +25,15 @@ from .handlers import (
     handle_search_text,
     handle_date_go,
     handle_date_text,
+    handle_checklist_list,
+    handle_checklist_detail,
+    handle_checklist_toggle,
+    handle_checklist_remove_item,
+    handle_checklist_add_go,
+    handle_checklist_add_text,
     SEARCHING,
     DATING,
+    ADDING_CL_ITEM,
 )
 
 logging.basicConfig(
@@ -54,9 +61,16 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
         fallbacks=[CallbackQueryHandler(handle_menu, pattern="^menu:main$")],
     )
 
+    cl_add_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(handle_checklist_add_go, pattern=r"^cladd:")],
+        states={ADDING_CL_ITEM: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_checklist_add_text)]},
+        fallbacks=[CommandHandler("start", start)],
+    )
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(search_conv)
     app.add_handler(date_conv)
+    app.add_handler(cl_add_conv)
     app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:main$"))
     app.add_handler(CallbackQueryHandler(handle_trips_list, pattern="^trips:list$"))
     app.add_handler(CallbackQueryHandler(handle_trip_category, pattern=r"^tc:"))
@@ -65,6 +79,10 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
     app.add_handler(CallbackQueryHandler(handle_transportation_list, pattern=r"^tt:"))
     app.add_handler(CallbackQueryHandler(handle_location_detail, pattern=r"^ld:[^o]"))
     app.add_handler(CallbackQueryHandler(handle_location_docs, pattern=r"^ldoc:"))
+    app.add_handler(CallbackQueryHandler(handle_checklist_list, pattern=r"^cllist:"))
+    app.add_handler(CallbackQueryHandler(handle_checklist_detail, pattern=r"^cl:"))
+    app.add_handler(CallbackQueryHandler(handle_checklist_toggle, pattern=r"^clc:"))
+    app.add_handler(CallbackQueryHandler(handle_checklist_remove_item, pattern=r"^clr:"))
 
     return app
 

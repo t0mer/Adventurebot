@@ -7,12 +7,14 @@ from telegram.ext import ContextTypes, ConversationHandler
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
     calendar_list, transportation_item, location_detail,
+    checklist_list, checklist_detail,
     search_prompt, date_prompt,
     parse_date, fmt_date, fmt_date_range, fmt_datetime, fmt_transport,
 )
 
 SEARCHING = 0
 DATING = 1
+ADDING_CL_ITEM = 2
 
 
 def _client(ctx: ContextTypes.DEFAULT_TYPE):
@@ -54,23 +56,25 @@ async def handle_trip_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
     trip_id = update.callback_query.data.split(":")[1]
     ctx.user_data["trip_id"] = trip_id
 
-    locations, transports = await asyncio.gather(
+    locations, transports, checklists = await asyncio.gather(
         _client(ctx).get_locations(),
         _client(ctx).get_transportations(),
+        _client(ctx).get_checklists(),
     )
     has_locations = any(trip_id in loc.get("collections", []) for loc in locations)
     has_transport = any(t.get("collection") == trip_id for t in transports)
+    has_checklists = any(cl.get("collection") == trip_id for cl in checklists)
 
-    if not has_locations and not has_transport:
+    if not has_locations and not has_transport and not has_checklists:
         await update.callback_query.edit_message_text(
-            "This trip has no locations or transportation yet.",
-            reply_markup=trip_category(trip_id, False, False),
+            "This trip has no locations, transportation, or checklists yet.",
+            reply_markup=trip_category(trip_id, False, False, False),
         )
         return
 
     await update.callback_query.edit_message_text(
         "What would you like to see?",
-        reply_markup=trip_category(trip_id, has_locations, has_transport),
+        reply_markup=trip_category(trip_id, has_locations, has_transport, has_checklists),
     )
 
 
@@ -365,5 +369,151 @@ async def handle_date_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> in
         f"On {fmt_date(target)} you were at *{loc.get('name', 'Unknown')}*\n{dates}",
         parse_mode="Markdown",
         reply_markup=main_menu(),
+    )
+    return ConversationHandler.END
+
+
+# ─── checklists ───────────────────────────────────────────────────────────────
+
+async def handle_checklist_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    trip_id = update.callback_query.data.split(":")[1]
+    ctx.user_data["trip_id"] = trip_id
+
+    all_cls = await _client(ctx).get_checklists()
+    cls = [cl for cl in all_cls if cl.get("collection") == trip_id]
+
+    if not cls:
+        await update.callback_query.edit_message_text(
+            "No checklists found for this trip.",
+            reply_markup=checklist_list(trip_id, []),
+        )
+        return
+
+    await update.callback_query.edit_message_text(
+        f"📋 {len(cls)} checklist{'s' if len(cls) != 1 else ''}:",
+        reply_markup=checklist_list(trip_id, cls),
+    )
+
+
+async def handle_checklist_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    cl_id = update.callback_query.data.split(":")[1]
+    trip_id = ctx.user_data.get("trip_id", "")
+    ctx.user_data["current_cl_id"] = cl_id
+
+    cl = await _client(ctx).get_checklist(cl_id)
+    items = cl.get("items", [])
+    name = cl.get("name", "Checklist")
+    done = sum(1 for it in items if it.get("is_checked"))
+
+    await update.callback_query.edit_message_text(
+        f"📋 *{name}* — {done}/{len(items)} done",
+        parse_mode="Markdown",
+        reply_markup=checklist_detail(cl_id, trip_id, items),
+    )
+
+
+async def handle_checklist_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    parts = update.callback_query.data.split(":")
+    cl_id = parts[1]
+    idx = int(parts[2])
+    trip_id = ctx.user_data.get("trip_id", "")
+
+    cl = await _client(ctx).get_checklist(cl_id)
+    items = cl.get("items", [])
+
+    if 0 <= idx < len(items):
+        item = items[idx]
+        new_items = []
+        for i, it in enumerate(items):
+            entry = {"name": it["name"], "is_checked": it["is_checked"]}
+            if "id" in it:
+                entry["id"] = it["id"]
+            if i == idx:
+                entry["is_checked"] = not it["is_checked"]
+            new_items.append(entry)
+        cl = await _client(ctx).patch_checklist_items(cl_id, new_items)
+        items = cl.get("items", [])
+
+    name = cl.get("name", "Checklist")
+    done = sum(1 for it in items if it.get("is_checked"))
+    await update.callback_query.edit_message_text(
+        f"📋 *{name}* — {done}/{len(items)} done",
+        parse_mode="Markdown",
+        reply_markup=checklist_detail(cl_id, trip_id, items),
+    )
+
+
+async def handle_checklist_remove_item(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    parts = update.callback_query.data.split(":")
+    cl_id = parts[1]
+    idx = int(parts[2])
+    trip_id = ctx.user_data.get("trip_id", "")
+
+    cl = await _client(ctx).get_checklist(cl_id)
+    items = cl.get("items", [])
+
+    new_items = []
+    for i, it in enumerate(items):
+        if i == idx:
+            continue
+        entry = {"name": it["name"], "is_checked": it["is_checked"]}
+        if "id" in it:
+            entry["id"] = it["id"]
+        new_items.append(entry)
+
+    cl = await _client(ctx).patch_checklist_items(cl_id, new_items)
+    items = cl.get("items", [])
+    name = cl.get("name", "Checklist")
+    done = sum(1 for it in items if it.get("is_checked"))
+
+    await update.callback_query.edit_message_text(
+        f"📋 *{name}* — {done}/{len(items)} done",
+        parse_mode="Markdown",
+        reply_markup=checklist_detail(cl_id, trip_id, items),
+    )
+
+
+async def handle_checklist_add_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.callback_query.answer()
+    cl_id = update.callback_query.data.split(":")[1]
+    ctx.user_data["current_cl_id"] = cl_id
+
+    await update.callback_query.edit_message_text(
+        "Type the name for the new checklist item:",
+    )
+    return ADDING_CL_ITEM
+
+
+async def handle_checklist_add_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    text = (update.message.text or "").strip()
+    cl_id = ctx.user_data.get("current_cl_id", "")
+    trip_id = ctx.user_data.get("trip_id", "")
+
+    if not text or not cl_id:
+        await update.message.reply_text("Something went wrong. Please try again.")
+        return ConversationHandler.END
+
+    cl = await _client(ctx).get_checklist(cl_id)
+    items = cl.get("items", [])
+    new_items = [
+        {"id": it["id"], "name": it["name"], "is_checked": it["is_checked"]}
+        if "id" in it else {"name": it["name"], "is_checked": it["is_checked"]}
+        for it in items
+    ]
+    new_items.append({"name": text, "is_checked": False})
+
+    cl = await _client(ctx).patch_checklist_items(cl_id, new_items)
+    items = cl.get("items", [])
+    name = cl.get("name", "Checklist")
+    done = sum(1 for it in items if it.get("is_checked"))
+
+    await update.message.reply_text(
+        f"📋 *{name}* — {done}/{len(items)} done",
+        parse_mode="Markdown",
+        reply_markup=checklist_detail(cl_id, trip_id, items),
     )
     return ConversationHandler.END
