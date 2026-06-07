@@ -235,8 +235,8 @@ async def handle_location_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     name = loc.get("name", "Unknown")
     desc = loc.get("description") or ""
     rating = loc.get("rating")
-    lat = loc.get("latitude")
-    lon = loc.get("longitude")
+    raw_lat = loc.get("latitude")
+    raw_lon = loc.get("longitude")
     link = loc.get("link") or ""
 
     lines = [f"*{name}*"]
@@ -244,14 +244,15 @@ async def handle_location_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         lines.append(f"Rating: {rating}/5")
     if desc:
         lines.append(desc[:300])
-    if lat and lon:
-        lat, lon = float(lat), float(lon)
-        lines.append(f"📍 [{lat:.4f}, {lon:.4f}](https://maps.google.com/?q={lat},{lon})")
+    if raw_lat and raw_lon:
+        lat_f = float(raw_lat)
+        lon_f = float(raw_lon)
+        lines.append(f"📍 [{lat_f:.4f}, {lon_f:.4f}](https://maps.google.com/?q={lat_f},{lon_f})")
     if link:
         lines.append(f"[More info]({link})")
 
-    map_lat = float(lat) if (lat is not None and lon is not None) else None
-    map_lon = float(lon) if (lat is not None and lon is not None) else None
+    map_lat = float(raw_lat) if (raw_lat is not None and raw_lon is not None) else None
+    map_lon = float(raw_lon) if (raw_lat is not None and raw_lon is not None) else None
 
     await update.callback_query.edit_message_text(
         "\n".join(lines),
