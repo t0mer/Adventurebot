@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from bot import handlers
 from bot.handlers import (
+    gate_unauthorized,
     start,
     handle_menu,
     handle_trips_list,
@@ -283,26 +284,50 @@ async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
 async def test_start_stores_chat_id_in_bot_data():
     upd = make_update_with_message("/start")
     ctx = make_context()
-    with patch.dict("os.environ", {}, clear=False):
-        os.environ.pop("OWNER_CHAT_ID", None)
-        await start(upd, ctx)
+    await start(upd, ctx)
     assert ctx.bot_data.get("chat_id") == 100
 
 
-async def test_start_rejects_unauthorized_chat():
-    upd = make_update_with_message("/start")
+async def test_gate_blocks_unauthorized_message():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_message("hello")
     ctx = make_context()
-    with patch.dict("os.environ", {"OWNER_CHAT_ID": "999"}):
-        await start(upd, ctx)
-    assert ctx.bot_data.get("chat_id") is None
+    with patch.dict("os.environ", {"ALLOWED_IDS": "999"}):
+        with pytest.raises(ApplicationHandlerStop):
+            await gate_unauthorized(upd, ctx)
     upd.message.reply_text.assert_awaited_once()
     text = upd.message.reply_text.call_args.args[0]
     assert "private" in text.lower() or "Sorry" in text
 
 
-async def test_start_allows_authorized_chat():
+async def test_gate_blocks_unauthorized_callback():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    with patch.dict("os.environ", {"ALLOWED_IDS": "999"}):
+        with pytest.raises(ApplicationHandlerStop):
+            await gate_unauthorized(upd, ctx)
+    upd.callback_query.answer.assert_awaited_once()
+
+
+async def test_gate_allows_authorized_chat():
+    from telegram.ext import ApplicationHandlerStop
     upd = make_update_with_message("/start")
     ctx = make_context()
-    with patch.dict("os.environ", {"OWNER_CHAT_ID": "100"}):
-        await start(upd, ctx)
-    assert ctx.bot_data.get("chat_id") == 100
+    with patch.dict("os.environ", {"ALLOWED_IDS": "100"}):
+        await gate_unauthorized(upd, ctx)  # must not raise
+
+
+async def test_gate_allows_multiple_ids():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_message("/start")
+    ctx = make_context()
+    with patch.dict("os.environ", {"ALLOWED_IDS": "999,100,888"}):
+        await gate_unauthorized(upd, ctx)  # chat_id=100 is in the list, must not raise
+
+
+async def test_gate_allows_when_no_allowed_ids_configured():
+    upd = make_update_with_message("/start")
+    ctx = make_context()
+    with patch.dict("os.environ", {}, clear=True):
+        await gate_unauthorized(upd, ctx)  # unrestricted, must not raise
