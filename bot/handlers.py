@@ -250,8 +250,8 @@ async def handle_location_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     if link:
         lines.append(f"[More info]({link})")
 
-    map_lat = float(lat) if (lat and lon) else None
-    map_lon = float(lon) if (lat and lon) else None
+    map_lat = float(lat) if (lat is not None and lon is not None) else None
+    map_lon = float(lon) if (lat is not None and lon is not None) else None
 
     await update.callback_query.edit_message_text(
         "\n".join(lines),

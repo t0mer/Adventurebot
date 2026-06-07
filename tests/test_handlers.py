@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from telegram import Update, User, Chat, Message, CallbackQuery, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 
+from bot import handlers
 from bot.handlers import (
     start,
     handle_menu,
@@ -208,9 +209,6 @@ async def test_handle_date_text_no_visit():
 @pytest.mark.asyncio
 async def test_handle_location_detail_passes_coords_to_keyboard(monkeypatch):
     """When the location has lat/lon, the keyboard should contain map URL buttons."""
-    from bot import handlers
-    from unittest.mock import AsyncMock, MagicMock
-
     loc = {
         "id": "l1",
         "name": "Amalfi Coast",
@@ -249,9 +247,6 @@ async def test_handle_location_detail_passes_coords_to_keyboard(monkeypatch):
 @pytest.mark.asyncio
 async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
     """When the location has no coordinates, the keyboard must not contain map URL buttons."""
-    from bot import handlers
-    from unittest.mock import AsyncMock, MagicMock
-
     loc = {
         "id": "l1",
         "name": "Unknown Place",
@@ -280,4 +275,5 @@ async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
     call_kwargs = update.callback_query.edit_message_text.call_args.kwargs
     markup = call_kwargs["reply_markup"]
     all_urls = [btn.url for row in markup.inline_keyboard for btn in row]
+    assert len(all_urls) > 0  # sanity: keyboard has buttons (just no URLs)
     assert all(u is None for u in all_urls)
