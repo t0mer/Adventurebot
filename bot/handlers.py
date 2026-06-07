@@ -5,6 +5,7 @@ import os
 from telegram import InputFile, Update
 from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandler
 
+
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
     calendar_list, transportation_item, location_detail,
@@ -22,17 +23,9 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
     return ctx.bot_data["client"]
 
 
-async def gate_unauthorized(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    allowed: frozenset[str] = ctx.bot_data.get("allowed_ids", frozenset())
-    if not allowed:
-        return
-    chat_id = str(update.effective_chat.id) if update.effective_chat else None
-    if chat_id in allowed:
-        return
+async def sorry_unauthorized(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message:
         await update.message.reply_text("Sorry, this bot is private.")
-    elif update.callback_query:
-        await update.callback_query.answer("Sorry, this bot is private.", show_alert=True)
     raise ApplicationHandlerStop
 
 

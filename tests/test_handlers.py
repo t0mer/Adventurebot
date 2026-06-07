@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from bot import handlers
 from bot.handlers import (
-    gate_unauthorized,
+    sorry_unauthorized,
     start,
     handle_menu,
     handle_trips_list,
@@ -288,44 +288,21 @@ async def test_start_stores_chat_id_in_bot_data():
     assert ctx.bot_data.get("chat_id") == 100
 
 
-async def test_gate_blocks_unauthorized_message():
+async def test_sorry_unauthorized_sends_reply_and_stops():
     from telegram.ext import ApplicationHandlerStop
     upd = make_update_with_message("hello")
     ctx = make_context()
-    ctx.bot_data["allowed_ids"] = frozenset({"999"})
     with pytest.raises(ApplicationHandlerStop):
-        await gate_unauthorized(upd, ctx)
+        await sorry_unauthorized(upd, ctx)
     upd.message.reply_text.assert_awaited_once()
     text = upd.message.reply_text.call_args.args[0]
     assert "private" in text.lower() or "Sorry" in text
 
 
-async def test_gate_blocks_unauthorized_callback():
+async def test_sorry_unauthorized_callback_only_stops():
     from telegram.ext import ApplicationHandlerStop
     upd = make_update_with_callback("menu:main")
     ctx = make_context()
-    ctx.bot_data["allowed_ids"] = frozenset({"999"})
     with pytest.raises(ApplicationHandlerStop):
-        await gate_unauthorized(upd, ctx)
-    upd.callback_query.answer.assert_awaited_once()
-
-
-async def test_gate_allows_authorized_chat():
-    upd = make_update_with_message("/start")
-    ctx = make_context()
-    ctx.bot_data["allowed_ids"] = frozenset({"100"})
-    await gate_unauthorized(upd, ctx)  # must not raise
-
-
-async def test_gate_allows_multiple_ids():
-    upd = make_update_with_message("/start")
-    ctx = make_context()
-    ctx.bot_data["allowed_ids"] = frozenset({"999", "100", "888"})
-    await gate_unauthorized(upd, ctx)  # chat_id=100 is in the list, must not raise
-
-
-async def test_gate_allows_when_no_allowed_ids_configured():
-    upd = make_update_with_message("/start")
-    ctx = make_context()
-    ctx.bot_data["allowed_ids"] = frozenset()
-    await gate_unauthorized(upd, ctx)  # unrestricted, must not raise
+        await sorry_unauthorized(upd, ctx)
+    upd.callback_query.answer.assert_not_awaited()
