@@ -74,6 +74,10 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
         .build()
     )
     app.bot_data["client"] = client
+    allowed_raw = os.environ.get("ALLOWED_IDS", "").strip()
+    app.bot_data["allowed_ids"] = frozenset(
+        s.strip() for s in allowed_raw.split(",") if s.strip()
+    ) if allowed_raw else frozenset()
 
     search_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(handle_search_go, pattern="^search:go$")],

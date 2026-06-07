@@ -23,10 +23,9 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def gate_unauthorized(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    allowed_raw = os.environ.get("ALLOWED_IDS", "").strip()
-    if not allowed_raw:
+    allowed: frozenset[str] = ctx.bot_data.get("allowed_ids", frozenset())
+    if not allowed:
         return
-    allowed = {s.strip() for s in allowed_raw.split(",") if s.strip()}
     chat_id = str(update.effective_chat.id) if update.effective_chat else None
     if chat_id in allowed:
         return
