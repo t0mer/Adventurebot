@@ -1,6 +1,9 @@
+import logging
 import re
 import httpx
 from datetime import date
+
+logger = logging.getLogger(__name__)
 
 
 class AdventureLogClient:
@@ -30,15 +33,16 @@ class AdventureLogClient:
         if not self._session_id:
             await self._ensure_auth()
         url = f"{self._base}/{path.lstrip('/')}"
-        headers = {"Cookie": f"sessionid={self._session_id}", "Content-Type": "application/json"}
-        async with httpx.AsyncClient() as http:
+        headers = {"Content-Type": "application/json"}
+        async with httpx.AsyncClient(cookies={"sessionid": self._session_id}) as http:
             resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
+        logger.info("_write %s %s -> %d", method.upper(), url, resp.status_code)
         if resp.status_code == 401:
             self._session_id = None
             await self._ensure_auth()
-            headers["Cookie"] = f"sessionid={self._session_id}"
-            async with httpx.AsyncClient() as http:
+            async with httpx.AsyncClient(cookies={"sessionid": self._session_id}) as http:
                 resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
+            logger.info("_write retry %s %s -> %d", method.upper(), url, resp.status_code)
         return resp
 
     async def _get(self, path: str, params: dict | None = None) -> httpx.Response:
