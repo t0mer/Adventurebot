@@ -15,6 +15,10 @@ docs/*
 *.design.md
 *.implementation.md
 
+# Runtime data
+data/
+_test_*.py
+
 # Python
 __pycache__/
 *.py[cod]

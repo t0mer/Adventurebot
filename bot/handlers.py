@@ -3,7 +3,8 @@ import io
 import os
 
 from telegram import InputFile, Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandler
+
 
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
@@ -22,13 +23,32 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
     return ctx.bot_data["client"]
 
 
+async def sorry_unauthorized(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message:
+        await update.message.reply_text("Sorry, this bot is private.")
+    raise ApplicationHandlerStop
+
+
+async def sorry_unauthorized_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    allowed: frozenset[str] = ctx.bot_data.get("allowed_ids", frozenset())
+    if not allowed:
+        return
+    chat_id = str(update.effective_chat.id) if update.effective_chat else None
+    if chat_id in allowed:
+        return
+    await update.callback_query.answer("Sorry, this bot is private.", show_alert=True)
+    raise ApplicationHandlerStop
+
+
+def _esc(text: str) -> str:
+    for ch in ('\\', '_', '*', '`', '['):
+        text = text.replace(ch, f'\\{ch}')
+    return text
+
+
 # ─── entry point ─────────────────────────────────────────────────────────────
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    owner_id = os.environ.get("OWNER_CHAT_ID", "").strip()
-    if owner_id and str(update.effective_chat.id) != owner_id:
-        await update.message.reply_text("Sorry, this bot is private.")
-        return
     ctx.bot_data["chat_id"] = update.effective_chat.id
     await update.message.reply_text(
         "Welcome! What would you like to do?",
@@ -245,11 +265,11 @@ async def handle_location_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     raw_lon = loc.get("longitude")
     link = loc.get("link") or ""
 
-    lines = [f"*{name}*"]
+    lines = [f"*{_esc(name)}*"]
     if rating is not None:
         lines.append(f"Rating: {rating}/5")
     if desc:
-        lines.append(desc[:300])
+        lines.append(_esc(desc[:300]))
     if raw_lat and raw_lon:
         lat_f = float(raw_lat)
         lon_f = float(raw_lon)
@@ -316,15 +336,15 @@ async def handle_search_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> 
         )
         return ConversationHandler.END
 
-    lines = [f'Results for "{query}":']
+    lines = [f'Results for "{_esc(query)}":']
     if locs:
         lines.append("\n*Locations:*")
         for loc in locs[:10]:
-            lines.append(f"• {loc.get('name', '')}")
+            lines.append(f"• {_esc(loc.get('name', ''))}")
     if cols:
         lines.append("\n*Trips:*")
         for col in cols[:5]:
-            lines.append(f"• {col.get('name', '')}")
+            lines.append(f"• {_esc(col.get('name', ''))}")
 
     await update.message.reply_text(
         "\n".join(lines),
@@ -376,7 +396,7 @@ async def handle_date_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> in
         dates = ""
 
     await update.message.reply_text(
-        f"On {fmt_date(target)} you were at *{loc.get('name', 'Unknown')}*\n{dates}",
+        f"On {fmt_date(target)} you were at *{_esc(loc.get('name', 'Unknown'))}*\n{dates}",
         parse_mode="Markdown",
         reply_markup=main_menu(),
     )
@@ -418,7 +438,7 @@ async def handle_checklist_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     done = sum(1 for it in items if it.get("is_checked"))
 
     await update.callback_query.edit_message_text(
-        f"📋 *{name}* — {done}/{len(items)} done",
+        f"📋 *{_esc(name)}* — {done}/{len(items)} done",
         parse_mode="Markdown",
         reply_markup=checklist_detail(cl_id, trip_id, items),
     )
@@ -448,7 +468,7 @@ async def handle_checklist_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     name = cl.get("name", "Checklist")
     done = sum(1 for it in items if it.get("is_checked"))
     await update.callback_query.edit_message_text(
-        f"📋 *{name}* — {done}/{len(items)} done",
+        f"📋 *{_esc(name)}* — {done}/{len(items)} done",
         parse_mode="Markdown",
         reply_markup=checklist_detail(cl_id, trip_id, items),
     )
@@ -479,7 +499,7 @@ async def handle_checklist_remove_item(update: Update, ctx: ContextTypes.DEFAULT
     done = sum(1 for it in items if it.get("is_checked"))
 
     await update.callback_query.edit_message_text(
-        f"📋 *{name}* — {done}/{len(items)} done",
+        f"📋 *{_esc(name)}* — {done}/{len(items)} done",
         parse_mode="Markdown",
         reply_markup=checklist_detail(cl_id, trip_id, items),
     )
@@ -520,7 +540,7 @@ async def handle_checklist_add_text(update: Update, ctx: ContextTypes.DEFAULT_TY
     done = sum(1 for it in items if it.get("is_checked"))
 
     await update.message.reply_text(
-        f"📋 *{name}* — {done}/{len(items)} done",
+        f"📋 *{_esc(name)}* — {done}/{len(items)} done",
         parse_mode="Markdown",
         reply_markup=checklist_detail(cl_id, trip_id, items),
     )

@@ -7,6 +7,8 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from bot import handlers
 from bot.handlers import (
+    sorry_unauthorized,
+    sorry_unauthorized_cb,
     start,
     handle_menu,
     handle_trips_list,
@@ -283,26 +285,49 @@ async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
 async def test_start_stores_chat_id_in_bot_data():
     upd = make_update_with_message("/start")
     ctx = make_context()
-    with patch.dict("os.environ", {}, clear=False):
-        os.environ.pop("OWNER_CHAT_ID", None)
-        await start(upd, ctx)
+    await start(upd, ctx)
     assert ctx.bot_data.get("chat_id") == 100
 
 
-async def test_start_rejects_unauthorized_chat():
-    upd = make_update_with_message("/start")
+async def test_sorry_unauthorized_sends_reply_and_stops():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_message("hello")
     ctx = make_context()
-    with patch.dict("os.environ", {"OWNER_CHAT_ID": "999"}):
-        await start(upd, ctx)
-    assert ctx.bot_data.get("chat_id") is None
+    with pytest.raises(ApplicationHandlerStop):
+        await sorry_unauthorized(upd, ctx)
     upd.message.reply_text.assert_awaited_once()
     text = upd.message.reply_text.call_args.args[0]
     assert "private" in text.lower() or "Sorry" in text
 
 
-async def test_start_allows_authorized_chat():
-    upd = make_update_with_message("/start")
+async def test_sorry_unauthorized_callback_only_stops():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_callback("menu:main")
     ctx = make_context()
-    with patch.dict("os.environ", {"OWNER_CHAT_ID": "100"}):
-        await start(upd, ctx)
-    assert ctx.bot_data.get("chat_id") == 100
+    with pytest.raises(ApplicationHandlerStop):
+        await sorry_unauthorized(upd, ctx)
+    upd.callback_query.answer.assert_not_awaited()
+
+
+async def test_sorry_unauthorized_cb_blocks_unauthorized():
+    from telegram.ext import ApplicationHandlerStop
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    ctx.bot_data["allowed_ids"] = frozenset({"999"})
+    with pytest.raises(ApplicationHandlerStop):
+        await sorry_unauthorized_cb(upd, ctx)
+    upd.callback_query.answer.assert_awaited_once()
+
+
+async def test_sorry_unauthorized_cb_passes_authorized():
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    ctx.bot_data["allowed_ids"] = frozenset({"100"})
+    await sorry_unauthorized_cb(upd, ctx)  # must not raise
+
+
+async def test_sorry_unauthorized_cb_passes_when_unrestricted():
+    upd = make_update_with_callback("menu:main")
+    ctx = make_context()
+    ctx.bot_data["allowed_ids"] = frozenset()
+    await sorry_unauthorized_cb(upd, ctx)  # must not raise

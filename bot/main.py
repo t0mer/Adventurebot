@@ -12,6 +12,8 @@ from telegram.ext import (
 
 from .client import AdventureLogClient
 from .handlers import (
+    sorry_unauthorized,
+    sorry_unauthorized_cb,
     start,
     handle_menu,
     handle_trips_list,
@@ -71,6 +73,9 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
         .build()
     )
     app.bot_data["client"] = client
+    allowed_raw = os.environ.get("ALLOWED_IDS", "").strip()
+    allowed_ids = frozenset(s.strip() for s in allowed_raw.split(",") if s.strip()) if allowed_raw else frozenset()
+    app.bot_data["allowed_ids"] = allowed_ids
 
     search_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(handle_search_go, pattern="^search:go$")],
@@ -104,6 +109,13 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
 
     reco_conv = build_reco_conv()
 
+    if allowed_ids:
+        allowed_ints = [int(x) for x in allowed_ids]
+        app.add_handler(
+            MessageHandler(~filters.Chat(chat_id=allowed_ints), sorry_unauthorized),
+            group=-1,
+        )
+        app.add_handler(CallbackQueryHandler(sorry_unauthorized_cb), group=-1)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schedulers", handle_schedulers_menu))
     app.add_handler(search_conv)
