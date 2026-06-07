@@ -15,7 +15,9 @@ from .handlers import (
     start,
     handle_menu,
     handle_trips_list,
+    handle_trip_category,
     handle_trip_itinerary,
+    handle_transportation_list,
     handle_location_detail,
     handle_location_docs,
     handle_search_go,
@@ -56,7 +58,9 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
     app.add_handler(date_conv)
     app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:main$"))
     app.add_handler(CallbackQueryHandler(handle_trips_list, pattern="^trips:list$"))
+    app.add_handler(CallbackQueryHandler(handle_trip_category, pattern=r"^tc:"))
     app.add_handler(CallbackQueryHandler(handle_trip_itinerary, pattern=r"^tl:"))
+    app.add_handler(CallbackQueryHandler(handle_transportation_list, pattern=r"^tt:"))
     app.add_handler(CallbackQueryHandler(handle_location_detail, pattern=r"^ld:[^o]"))
     app.add_handler(CallbackQueryHandler(handle_location_docs, pattern=r"^ldoc:"))
 

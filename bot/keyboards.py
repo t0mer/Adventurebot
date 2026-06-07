@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -23,6 +23,46 @@ def parse_date(text: str) -> Optional[date]:
 
 def fmt_date(d: date) -> str:
     return f"{d.day:02d} {_MONTHS[d.month - 1]} {d.year}"
+
+
+def fmt_datetime(dt_str: str) -> str:
+    try:
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        return f"{dt.day:02d} {_MONTHS[dt.month - 1]} {dt.year}, {dt.hour:02d}:{dt.minute:02d}"
+    except (ValueError, AttributeError):
+        return dt_str[:16] if dt_str else ""
+
+
+_TRANSPORT_ICONS: dict[str, str] = {
+    "plane": "✈️",
+    "car": "🚗",
+    "train": "🚂",
+    "bus": "🚌",
+    "boat": "⛴️",
+    "ferry": "⛴️",
+    "bike": "🚲",
+    "walk": "🚶",
+}
+
+
+def fmt_transport(t: dict, index: int, total: int) -> str:
+    icon = _TRANSPORT_ICONS.get(t.get("type", ""), "🚌")
+    name = t.get("name") or t.get("type", "Transport")
+    lines = [f"{icon} {name} ({index + 1}/{total})"]
+    frm = t.get("from_location") or ""
+    to = t.get("to_location") or ""
+    flight = t.get("flight_number") or t.get("start_code") or ""
+    if frm or to:
+        route = f"{frm} → {to}" if frm and to else frm or to
+        lines.append(f"{flight + ': ' if flight else ''}{route}")
+    dep = t.get("date") or ""
+    if dep:
+        lines.append(fmt_datetime(dep))
+    price = t.get("price")
+    currency = t.get("price_currency") or ""
+    if price and float(price) > 0:
+        lines.append(f"💰 {price} {currency}".strip())
+    return "\n".join(lines)
 
 
 def fmt_date_range(start: date, end: date) -> str:
@@ -54,8 +94,18 @@ def trips_list(collections: list[dict]) -> InlineKeyboardMarkup:
                 label = f"{label}  ({fmt_date_range(s, e)})"
             except ValueError:
                 pass
-        rows.append([InlineKeyboardButton(label, callback_data=f"tl:{col['id']}:0")])
+        rows.append([InlineKeyboardButton(label, callback_data=f"tc:{col['id']}")])
     rows.append([InlineKeyboardButton("« Back", callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def trip_category(trip_id: str, has_locations: bool, has_transport: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if has_locations:
+        rows.append([InlineKeyboardButton("📍 Locations", callback_data=f"tl:{trip_id}:0")])
+    if has_transport:
+        rows.append([InlineKeyboardButton("✈️ Transportation", callback_data=f"tt:{trip_id}:0")])
+    rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -85,7 +135,20 @@ def trip_itinerary(
     if nav:
         rows.append(nav)
 
-    rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def transportation_item(trip_id: str, index: int, total: int) -> InlineKeyboardMarkup:
+    rows = []
+    nav = []
+    if index > 0:
+        nav.append(InlineKeyboardButton("‹ Prev", callback_data=f"tt:{trip_id}:{index - 1}"))
+    if index < total - 1:
+        nav.append(InlineKeyboardButton("Next ›", callback_data=f"tt:{trip_id}:{index + 1}"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")])
     return InlineKeyboardMarkup(rows)
 
 

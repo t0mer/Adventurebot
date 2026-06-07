@@ -1,12 +1,13 @@
+import asyncio
 import io
 
 from telegram import InputFile, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from .keyboards import (
-    main_menu, trips_list, trip_itinerary,
-    location_detail, search_prompt, date_prompt,
-    parse_date, fmt_date, fmt_date_range,
+    main_menu, trips_list, trip_category, trip_itinerary,
+    transportation_item, location_detail, search_prompt, date_prompt,
+    parse_date, fmt_date, fmt_date_range, fmt_transport,
 )
 
 SEARCHING = 0
@@ -44,6 +45,58 @@ async def handle_trips_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> N
     await update.callback_query.edit_message_text(
         "Your trips:" if collections else "No trips found.",
         reply_markup=trips_list(collections),
+    )
+
+
+async def handle_trip_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    trip_id = update.callback_query.data.split(":")[1]
+    ctx.user_data["trip_id"] = trip_id
+
+    locations, transports = await asyncio.gather(
+        _client(ctx).get_locations(),
+        _client(ctx).get_transportations(),
+    )
+    has_locations = any(trip_id in loc.get("collections", []) for loc in locations)
+    has_transport = any(t.get("collection") == trip_id for t in transports)
+
+    if not has_locations and not has_transport:
+        await update.callback_query.edit_message_text(
+            "This trip has no locations or transportation yet.",
+            reply_markup=trip_category(trip_id, False, False),
+        )
+        return
+
+    await update.callback_query.edit_message_text(
+        "What would you like to see?",
+        reply_markup=trip_category(trip_id, has_locations, has_transport),
+    )
+
+
+async def handle_transportation_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    parts = update.callback_query.data.split(":")
+    trip_id = parts[1]
+    index = int(parts[2])
+
+    transports = await _client(ctx).get_transportations()
+    items = sorted(
+        [t for t in transports if t.get("collection") == trip_id],
+        key=lambda t: t.get("date", ""),
+    )
+
+    if not items:
+        await update.callback_query.edit_message_text(
+            "No transportation found for this trip.",
+            reply_markup=transportation_item(trip_id, 0, 0),
+        )
+        return
+
+    index = max(0, min(index, len(items) - 1))
+    text = fmt_transport(items[index], index, len(items))
+    await update.callback_query.edit_message_text(
+        text,
+        reply_markup=transportation_item(trip_id, index, len(items)),
     )
 
 

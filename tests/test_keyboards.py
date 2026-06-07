@@ -67,7 +67,7 @@ def test_trips_list_has_trip_button():
     kb = trips_list([{"id": "c1", "name": "Poland 2026", "start_date": "2026-07-01", "end_date": "2026-07-14"}])
     flat = [btn for row in kb.inline_keyboard for btn in row]
     data = [btn.callback_data for btn in flat]
-    assert any(d.startswith("tl:c1:") for d in data)
+    assert any(d.startswith("tc:c1") for d in data)
 
 
 def test_trip_itinerary_has_nav_and_back():
@@ -82,7 +82,7 @@ def test_trip_itinerary_has_nav_and_back():
     kb = trip_itinerary("c1", locations, visits, index=0)
     flat = [btn for row in kb.inline_keyboard for btn in row]
     data = [btn.callback_data for btn in flat]
-    assert "trips:list" in data
+    assert any(d == "tc:c1" for d in data)
     assert any(d.startswith("ld:") for d in data)
 
 
