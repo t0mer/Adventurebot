@@ -30,7 +30,14 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
 async def handle_reco_from_location(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     await update.callback_query.answer()
     loc_id = update.callback_query.data.split(":", 2)[2]
-    location = await _client(ctx).get_location(loc_id)
+    try:
+        location = await _client(ctx).get_location(loc_id)
+    except httpx.HTTPError as exc:
+        logger.error("get_location failed: %s", exc)
+        await update.callback_query.edit_message_text(
+            "Could not fetch location details. Please try again."
+        )
+        return ConversationHandler.END
 
     try:
         lat = float(location["latitude"])
@@ -111,11 +118,17 @@ async def handle_reco_radius(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> 
     km = int(update.callback_query.data.split(":", 2)[2])
     radius_m = km * 1000
 
-    lat = ctx.user_data["reco_lat"]
-    lon = ctx.user_data["reco_lon"]
-    category = ctx.user_data["reco_category"]
+    lat = ctx.user_data.get("reco_lat")
+    lon = ctx.user_data.get("reco_lon")
+    category = ctx.user_data.get("reco_category")
     origin_type = ctx.user_data.get("reco_origin_type", "location")
     origin_id = ctx.user_data.get("reco_origin_id", "")
+
+    if lat is None or lon is None or category is None:
+        await update.callback_query.edit_message_text(
+            "Session expired. Please start over."
+        )
+        return ConversationHandler.END
 
     back_callback = f"ld:{origin_id}" if origin_type == "location" else f"tc:{origin_id}"
     back_label = "« Back"

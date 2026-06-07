@@ -1,6 +1,7 @@
 """Unit tests for recommendations handlers."""
+import httpx
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from telegram import Update, Chat, Message, CallbackQuery, Location
 from telegram.ext import ContextTypes, ConversationHandler
 
@@ -182,7 +183,6 @@ async def test_reco_radius_no_results_shows_empty_message():
 
 
 async def test_reco_radius_api_error_shows_error_message():
-    import httpx
     upd = make_callback_update("reco:rad:20")
     ctx = make_context()
     ctx.user_data = {
