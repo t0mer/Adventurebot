@@ -1,17 +1,20 @@
 import logging
 import os
 from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     ConversationHandler,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
 from .client import AdventureLogClient
 from .handlers import (
+    gate_unauthorized,
     start,
     handle_menu,
     handle_trips_list,
@@ -104,6 +107,7 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
 
     reco_conv = build_reco_conv()
 
+    app.add_handler(TypeHandler(Update, gate_unauthorized), group=-1)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schedulers", handle_schedulers_menu))
     app.add_handler(search_conv)

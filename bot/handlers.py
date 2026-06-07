@@ -3,7 +3,7 @@ import io
 import os
 
 from telegram import InputFile, Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandler
 
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
@@ -22,6 +22,21 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
     return ctx.bot_data["client"]
 
 
+async def gate_unauthorized(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    allowed_raw = os.environ.get("ALLOWED_IDS", "").strip()
+    if not allowed_raw:
+        return
+    allowed = {s.strip() for s in allowed_raw.split(",") if s.strip()}
+    chat_id = str(update.effective_chat.id) if update.effective_chat else None
+    if chat_id in allowed:
+        return
+    if update.message:
+        await update.message.reply_text("Sorry, this bot is private.")
+    elif update.callback_query:
+        await update.callback_query.answer("Sorry, this bot is private.", show_alert=True)
+    raise ApplicationHandlerStop
+
+
 def _esc(text: str) -> str:
     for ch in ('\\', '_', '*', '`', '['):
         text = text.replace(ch, f'\\{ch}')
@@ -31,10 +46,6 @@ def _esc(text: str) -> str:
 # ─── entry point ─────────────────────────────────────────────────────────────
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    owner_id = os.environ.get("OWNER_CHAT_ID", "").strip()
-    if owner_id and str(update.effective_chat.id) != owner_id:
-        await update.message.reply_text("Sorry, this bot is private.")
-        return
     ctx.bot_data["chat_id"] = update.effective_chat.id
     await update.message.reply_text(
         "Welcome! What would you like to do?",
