@@ -55,7 +55,7 @@ async def checklist_reminder_job(context: CallbackContext) -> None:
 
     lines = ["📋 *Incomplete checklists*"]
     for key, cls in groups.items():
-        group_name = col_name.get(key, "🗂 Other") if key != "other" else "🗂 Other"
+        group_name = col_name.get(key, "🗂 Other")
         lines.append(f"\n🧳 *{group_name}*")
         for cl in cls:
             lines.append(f"  ☐ {cl['name']}")
@@ -75,9 +75,14 @@ async def evening_digest_job(context: CallbackContext) -> None:
         logger.warning("evening_digest_job: no chat_id set, skipping")
         return
 
-    config = scheduler_store.load()
-    entry = scheduler_store.get_scheduler(config, "evening_digest")
-    tz_name = entry.get("timezone") or os.environ.get("TZ", "UTC")
+    try:
+        config = scheduler_store.load()
+        entry = scheduler_store.get_scheduler(config, "evening_digest")
+        tz_name = entry.get("timezone") or os.environ.get("TZ", "UTC")
+    except (KeyError, ValueError) as exc:
+        logger.warning("evening_digest_job: bad scheduler config: %s", exc)
+        tz_name = os.environ.get("TZ", "UTC")
+
     try:
         tz = ZoneInfo(tz_name)
     except ZoneInfoNotFoundError:
