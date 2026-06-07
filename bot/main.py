@@ -35,6 +35,18 @@ from .handlers import (
     DATING,
     ADDING_CL_ITEM,
 )
+from .scheduler_handlers import (
+    handle_schedulers_menu,
+    handle_scheduler_detail,
+    handle_scheduler_toggle,
+    handle_scheduler_set_time_go,
+    handle_scheduler_set_time_text,
+    handle_scheduler_set_tz_go,
+    handle_scheduler_set_tz_text,
+    _reschedule,
+    SETTING_SCHED_TIME,
+    SETTING_SCHED_TZ,
+)
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -43,10 +55,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _on_startup(app: Application) -> None:
+    _reschedule(app, "checklist_reminder")
+    _reschedule(app, "evening_digest")
+
+
 def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Application:
     client = AdventureLogClient(base_url=al_url, username=al_username, password=al_password)
 
-    app = Application.builder().token(token).build()
+    app = (
+        Application.builder()
+        .token(token)
+        .post_init(_on_startup)
+        .build()
+    )
     app.bot_data["client"] = client
 
     search_conv = ConversationHandler(
@@ -67,10 +89,25 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
         fallbacks=[CommandHandler("start", start)],
     )
 
+    sched_time_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(handle_scheduler_set_time_go, pattern=r"^sched:settime:")],
+        states={SETTING_SCHED_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_scheduler_set_time_text)]},
+        fallbacks=[CommandHandler("start", start)],
+    )
+
+    sched_tz_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(handle_scheduler_set_tz_go, pattern=r"^sched:settz:")],
+        states={SETTING_SCHED_TZ: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_scheduler_set_tz_text)]},
+        fallbacks=[CommandHandler("start", start)],
+    )
+
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("schedulers", handle_schedulers_menu))
     app.add_handler(search_conv)
     app.add_handler(date_conv)
     app.add_handler(cl_add_conv)
+    app.add_handler(sched_time_conv)
+    app.add_handler(sched_tz_conv)
     app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:main$"))
     app.add_handler(CallbackQueryHandler(handle_trips_list, pattern="^trips:list$"))
     app.add_handler(CallbackQueryHandler(handle_trip_category, pattern=r"^tc:"))
@@ -83,6 +120,9 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
     app.add_handler(CallbackQueryHandler(handle_checklist_detail, pattern=r"^cl:"))
     app.add_handler(CallbackQueryHandler(handle_checklist_toggle, pattern=r"^clc:"))
     app.add_handler(CallbackQueryHandler(handle_checklist_remove_item, pattern=r"^clr:"))
+    app.add_handler(CallbackQueryHandler(handle_schedulers_menu, pattern=r"^sched:menu$"))
+    app.add_handler(CallbackQueryHandler(handle_scheduler_detail, pattern=r"^sched:detail:"))
+    app.add_handler(CallbackQueryHandler(handle_scheduler_toggle, pattern=r"^sched:toggle:"))
 
     return app
 
