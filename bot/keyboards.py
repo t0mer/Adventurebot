@@ -115,6 +115,10 @@ def trip_category(
         rows.append([InlineKeyboardButton("📅 Calendar", callback_data=f"cal:{trip_id}")])
     if has_checklists:
         rows.append([InlineKeyboardButton("📋 Checklists", callback_data=f"cllist:{trip_id}")])
+    rows.append([InlineKeyboardButton(
+        "🔍 Recommendations nearby",
+        callback_data=f"reco:trip:{trip_id}",
+    )])
     rows.append([InlineKeyboardButton("« Trips", callback_data="trips:list")])
     return InlineKeyboardMarkup(rows)
 
@@ -213,12 +217,40 @@ def location_detail(
                 InlineKeyboardButton("🧭 Navigate (Google)", url=f"https://maps.google.com/?daddr={lat},{lon}"),
             ],
         ]
+    rows.append([InlineKeyboardButton("Download docs", callback_data=f"ldoc:{loc_id}")])
+    if lat is not None and lon is not None:
+        rows.append([InlineKeyboardButton(
+            "📍 Recommendations nearby",
+            callback_data=f"reco:loc:{loc_id}",
+        )])
     rows += [
-        [InlineKeyboardButton("Download docs", callback_data=f"ldoc:{loc_id}")],
         [InlineKeyboardButton("« Itinerary", callback_data=f"tl:{trip_id}:{index}")],
         [InlineKeyboardButton("« Trips", callback_data="trips:list")],
     ]
     return InlineKeyboardMarkup(rows)
+
+
+def reco_category_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🍔 Food", callback_data="reco:cat:food"),
+            InlineKeyboardButton("🛌 Lodging", callback_data="reco:cat:lodging"),
+            InlineKeyboardButton("🏛 Tourism", callback_data="reco:cat:tourism"),
+        ],
+        [InlineKeyboardButton("Cancel", callback_data="reco:cancel")],
+    ])
+
+
+def reco_radius_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("5 km", callback_data="reco:rad:5"),
+            InlineKeyboardButton("10 km", callback_data="reco:rad:10"),
+            InlineKeyboardButton("20 km", callback_data="reco:rad:20"),
+            InlineKeyboardButton("50 km", callback_data="reco:rad:50"),
+        ],
+        [InlineKeyboardButton("Cancel", callback_data="reco:cancel")],
+    ])
 
 
 def search_prompt() -> InlineKeyboardMarkup:

@@ -12,6 +12,11 @@ from bot.keyboards import (
     schedulers_menu,
     scheduler_detail,
 )
+from bot.keyboards import (
+    reco_category_keyboard,
+    reco_radius_keyboard,
+    trip_category,
+)
 from telegram import InlineKeyboardMarkup
 
 
@@ -235,3 +240,56 @@ def test_scheduler_detail_disabled_shows_enable_button():
     texts = [btn.text for btn in flat]
     assert any("Enable" in t for t in texts)
     assert not any("Disable" in t for t in texts)
+
+
+def test_reco_category_keyboard_has_three_category_buttons():
+    kb = reco_category_keyboard()
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "reco:cat:food" in all_callbacks
+    assert "reco:cat:lodging" in all_callbacks
+    assert "reco:cat:tourism" in all_callbacks
+
+
+def test_reco_category_keyboard_has_cancel_button():
+    kb = reco_category_keyboard()
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "reco:cancel" in all_callbacks
+
+
+def test_reco_radius_keyboard_has_four_radius_buttons():
+    kb = reco_radius_keyboard()
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "reco:rad:5" in all_callbacks
+    assert "reco:rad:10" in all_callbacks
+    assert "reco:rad:20" in all_callbacks
+    assert "reco:rad:50" in all_callbacks
+
+
+def test_reco_radius_keyboard_has_cancel_button():
+    kb = reco_radius_keyboard()
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "reco:cancel" in all_callbacks
+
+
+def test_location_detail_has_reco_button_when_coords_present():
+    kb = location_detail("loc1", "trip1", 0, lat=32.0, lon=34.8)
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row if btn.callback_data]
+    assert "reco:loc:loc1" in all_callbacks
+
+
+def test_location_detail_no_reco_button_when_no_coords():
+    kb = location_detail("loc1", "trip1", 0, lat=None, lon=None)
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row if btn.callback_data]
+    assert "reco:loc:loc1" not in all_callbacks
+
+
+def test_trip_category_has_reco_button():
+    kb = trip_category("trip1", has_locations=True, has_transport=False)
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "reco:trip:trip1" in all_callbacks
+
+
+def test_trip_category_has_reco_button_even_when_empty():
+    kb = trip_category("trip1", has_locations=False, has_transport=False)
+    all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "reco:trip:trip1" in all_callbacks
