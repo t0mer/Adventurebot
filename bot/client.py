@@ -63,6 +63,11 @@ class AdventureLogClient:
         data = resp.json()
         return data if isinstance(data, list) else data.get("results", [])
 
+    async def get_transportations(self) -> list[dict]:
+        resp = await self._get("/api/transportations")
+        data = resp.json()
+        return data if isinstance(data, list) else data.get("results", [])
+
     async def search(self, query: str) -> dict:
         resp = await self._get("/api/search", params={"query": query})
         return resp.json()
