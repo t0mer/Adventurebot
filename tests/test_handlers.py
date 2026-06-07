@@ -277,3 +277,10 @@ async def test_handle_location_detail_no_coords_has_no_map_buttons(monkeypatch):
     all_urls = [btn.url for row in markup.inline_keyboard for btn in row]
     assert len(all_urls) > 0  # sanity: keyboard has buttons (just no URLs)
     assert all(u is None for u in all_urls)
+
+
+async def test_start_stores_chat_id_in_bot_data():
+    upd = make_update_with_message("/start")
+    ctx = make_context()
+    await start(upd, ctx)
+    assert ctx.bot_data.get("chat_id") == 100

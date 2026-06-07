@@ -24,6 +24,7 @@ def _client(ctx: ContextTypes.DEFAULT_TYPE):
 # ─── entry point ─────────────────────────────────────────────────────────────
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    ctx.bot_data.setdefault("chat_id", update.effective_chat.id)
     await update.message.reply_text(
         "Welcome! What would you like to do?",
         reply_markup=main_menu(),
