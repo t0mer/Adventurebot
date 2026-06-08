@@ -22,7 +22,7 @@ A private Telegram bot that connects to your [AdventureLog](https://github.com/s
 ## Requirements
 
 - Python 3.12+
-- A running [AdventureLog](https://github.com/seanmorley15/AdventureLog) instance (v0.11 or newer)
+- A running AdventureLog instance (v0.11 or newer) — see the [official installation guide](https://adventurelog.app/docs/install/)
 - A Telegram bot token from [@BotFather](https://t.me/BotFather)
 
 ---
