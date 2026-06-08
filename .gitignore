@@ -18,6 +18,10 @@ docs/*
 # Runtime data
 data/
 _test_*.py
+seed_data.py
+
+# Raw screenshot sources (processed copies live in assets/screenshots/)
+/screenshots/
 
 # Python
 __pycache__/
