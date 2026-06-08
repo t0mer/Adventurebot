@@ -88,6 +88,43 @@ tmux attach -t adventurebot
 
 ---
 
+## Running with Docker
+
+### docker-compose (recommended)
+
+1. Pull the image and start the container:
+
+```bash
+docker compose up -d
+```
+
+The compose file reads credentials from your `.env` file automatically. Make sure it exists and is filled in (see [Configure environment](#3-configure-environment)).
+
+Scheduler data is persisted in a local `data/` directory mounted into the container.
+
+### docker run
+
+```bash
+docker run -d \
+  --name adventurebot \
+  --restart unless-stopped \
+  -e TELEGRAM_TOKEN=your_token \
+  -e AL_URL=https://adventure.example.com \
+  -e AL_USERNAME=admin \
+  -e AL_PASSWORD=secret \
+  -e ALLOWED_IDS=123456789 \
+  -v $(pwd)/data:/app/data \
+  techblog/adventurebot:latest
+```
+
+### Viewing logs
+
+```bash
+docker compose logs -f
+```
+
+---
+
 ## Screenshots
 
 ### Main Menu
