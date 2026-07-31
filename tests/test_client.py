@@ -1,7 +1,7 @@
 import pytest
 import httpx
 from datetime import date
-from bot.client import AdventureLogClient
+from bot.client import AdventureLogClient, AdventureLogAuthError
 
 BASE = "https://al.test"
 
@@ -95,6 +95,47 @@ async def test_reauthenticates_on_401(respx_mock):
     result = await client.get_collections()
     assert login_route.called
     assert result == []
+
+
+async def test_login_failure_raises_auth_error(respx_mock):
+    # AdventureLog returns a failure body and no sessionid cookie on bad creds.
+    respx_mock.post(f"{BASE}/login").mock(
+        return_value=httpx.Response(
+            400,
+            json={"type": "failure", "data": "settings.invalid_credentials"},
+        )
+    )
+    client = make_client()
+    with pytest.raises(AdventureLogAuthError):
+        await client._ensure_auth()
+    assert client._session_id is None
+
+
+async def test_get_raises_auth_error_on_bad_credentials(respx_mock):
+    respx_mock.post(f"{BASE}/login").mock(
+        return_value=httpx.Response(400, json={"type": "failure"})
+    )
+    client = make_client()
+    with pytest.raises(AdventureLogAuthError):
+        await client.get_collections()
+
+
+async def test_reauthenticates_on_400_not_authenticated(respx_mock):
+    # This instance returns 400 (not 401) with this body when the session is stale.
+    login_route = respx_mock.post(f"{BASE}/login").mock(
+        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=fresh; Path=/"})
+    )
+    respx_mock.get(f"{BASE}/api/collections").mock(
+        side_effect=[
+            httpx.Response(400, json={"error": "User is not authenticated"}),
+            httpx.Response(200, json={"count": 1, "results": [{"id": "c1"}]}),
+        ]
+    )
+    client = make_client()
+    client._session_id = "expired"
+    result = await client.get_collections()
+    assert login_route.called
+    assert len(result) == 1
 
 
 def test_find_visit_for_date_matches():
