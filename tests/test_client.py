@@ -1,31 +1,25 @@
-import pytest
 import httpx
 from datetime import date
 from bot.client import AdventureLogClient
 
 BASE = "https://al.test"
+API_KEY = "al_testkey"
 
 
 def make_client():
-    return AdventureLogClient(base_url=BASE, username="admin", password="secret")
+    return AdventureLogClient(base_url=BASE, api_key=API_KEY)
 
 
-async def test_login_sets_session_cookie(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(
-            200,
-            headers={"Set-Cookie": "sessionid=abc123; Path=/; HttpOnly"},
-        )
+async def test_get_sends_api_key_header(respx_mock):
+    route = respx_mock.get(f"{BASE}/api/collections").mock(
+        return_value=httpx.Response(200, json={"count": 0, "results": []})
     )
     client = make_client()
-    await client._ensure_auth()
-    assert client._session_id == "abc123"
+    await client.get_collections()
+    assert route.calls[0].request.headers["X-Api-Key"] == API_KEY
 
 
 async def test_get_collections_returns_list(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
-    )
     respx_mock.get(f"{BASE}/api/collections").mock(
         return_value=httpx.Response(
             200,
@@ -39,9 +33,6 @@ async def test_get_collections_returns_list(respx_mock):
 
 
 async def test_get_locations_returns_list(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
-    )
     respx_mock.get(f"{BASE}/api/locations").mock(
         return_value=httpx.Response(
             200,
@@ -54,9 +45,6 @@ async def test_get_locations_returns_list(respx_mock):
 
 
 async def test_get_location_returns_dict(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
-    )
     respx_mock.get(f"{BASE}/api/locations/loc1").mock(
         return_value=httpx.Response(200, json={"id": "loc1", "name": "Hotel A", "rating": 4.5})
     )
@@ -66,9 +54,6 @@ async def test_get_location_returns_dict(respx_mock):
 
 
 async def test_search_returns_structured_dict(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
-    )
     respx_mock.get(f"{BASE}/api/search").mock(
         return_value=httpx.Response(
             200,
@@ -80,21 +65,13 @@ async def test_search_returns_structured_dict(respx_mock):
     assert result["locations"][0]["name"] == "Zakopane Hotel"
 
 
-async def test_reauthenticates_on_401(respx_mock):
-    login_route = respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=newtoken; Path=/"})
-    )
-    respx_mock.get(f"{BASE}/api/collections").mock(
-        side_effect=[
-            httpx.Response(401, json={}),
-            httpx.Response(200, json={"count": 0, "results": []}),
-        ]
+async def test_write_sends_api_key_header(respx_mock):
+    route = respx_mock.patch(f"{BASE}/api/checklists/cl1/").mock(
+        return_value=httpx.Response(200, json={"id": "cl1", "items": []})
     )
     client = make_client()
-    client._session_id = "expired"
-    result = await client.get_collections()
-    assert login_route.called
-    assert result == []
+    await client.patch_checklist_items("cl1", [])
+    assert route.calls[0].request.headers["X-Api-Key"] == API_KEY
 
 
 def test_find_visit_for_date_matches():
@@ -116,9 +93,6 @@ def test_find_visit_for_date_no_match():
 
 
 async def test_get_recommendations_returns_first_10(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
-    )
     results = [{"name": f"Place {i}", "rating": 4.0, "review_count": 100, "distance_km": i * 0.1, "google_maps_url": "https://g.co/map"} for i in range(15)]
     respx_mock.get(f"{BASE}/api/recommendations/query").mock(
         return_value=httpx.Response(200, json={"count": 15, "results": results})
@@ -130,9 +104,6 @@ async def test_get_recommendations_returns_first_10(respx_mock):
 
 
 async def test_get_recommendations_passes_correct_params(respx_mock):
-    respx_mock.post(f"{BASE}/login").mock(
-        return_value=httpx.Response(200, headers={"Set-Cookie": "sessionid=tok; Path=/"})
-    )
     route = respx_mock.get(f"{BASE}/api/recommendations/query").mock(
         return_value=httpx.Response(200, json={"count": 0, "results": []})
     )
