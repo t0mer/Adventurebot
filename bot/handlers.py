@@ -1,6 +1,5 @@
 import asyncio
 import io
-import os
 
 from telegram import InputFile, Update
 from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandler
