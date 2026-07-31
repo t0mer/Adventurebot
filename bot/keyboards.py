@@ -109,6 +109,32 @@ def locations_menu(trip_id: str) -> InlineKeyboardMarkup:
     ])
 
 
+def locations_picker(
+    items: list[dict],
+    page: int,
+    back_cb: str,
+    *,
+    per_page: int = 8,
+) -> InlineKeyboardMarkup:
+    total = len(items)
+    last_page = max(0, (total - 1) // per_page)
+    page = max(0, min(page, last_page))
+    start = page * per_page
+    rows = [
+        [InlineKeyboardButton(it["name"], callback_data=f"ld:{it['id']}")]
+        for it in items[start:start + per_page]
+    ]
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("‹ Prev", callback_data=f"locpg:{page - 1}"))
+    if page < last_page:
+        nav.append(InlineKeyboardButton("Next ›", callback_data=f"locpg:{page + 1}"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("« Back", callback_data=back_cb)])
+    return InlineKeyboardMarkup(rows)
+
+
 def trip_category(
     trip_id: str,
     has_locations: bool,

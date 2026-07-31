@@ -15,6 +15,7 @@ from bot.keyboards import (
     reco_radius_keyboard,
     trip_category,
     locations_menu,
+    locations_picker,
 )
 from telegram import InlineKeyboardMarkup
 
@@ -308,3 +309,45 @@ def test_trip_category_locations_button_opens_menu():
     data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "locmenu:c1" in data
     assert "tl:c1:0" not in data      # no longer jumps straight to paging
+
+
+def _items(n):
+    return [{"id": f"l{i}", "name": f"Place {i:02d}"} for i in range(n)]
+
+
+def test_locations_picker_first_page_has_next_not_prev():
+    kb = locations_picker(_items(20), page=0, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    loc_buttons = [d for d in data if d.startswith("ld:")]
+    assert len(loc_buttons) == 8                 # 8 per page
+    assert "locpg:1" in data                     # Next
+    assert not any(d == "locpg:-1" for d in data)  # no Prev on first page
+    assert "locmenu:c1" in data                  # back
+
+
+def test_locations_picker_middle_page_has_both_arrows():
+    kb = locations_picker(_items(20), page=1, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "locpg:0" in data
+    assert "locpg:2" in data
+
+
+def test_locations_picker_last_page_has_prev_not_next():
+    kb = locations_picker(_items(20), page=2, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    loc_buttons = [d for d in data if d.startswith("ld:")]
+    assert len(loc_buttons) == 4                 # 20 - 16
+    assert "locpg:1" in data                     # Prev
+    assert not any(d == "locpg:3" for d in data)  # no Next past the end
+
+
+def test_locations_picker_single_page_has_no_arrows():
+    kb = locations_picker(_items(3), page=0, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert not any(d.startswith("locpg:") for d in data)
+
+
+def test_locations_picker_out_of_range_page_clamps():
+    kb = locations_picker(_items(3), page=99, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert any(d.startswith("ld:") for d in data)   # renders the last valid page
