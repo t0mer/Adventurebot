@@ -240,3 +240,52 @@ tests/                         # pytest test suite
 ## AdventureLog Compatibility
 
 Requires AdventureLog **v0.11 or newer** — this version renamed "Adventures" to "Locations". Older instances use different API paths and are not supported.
+
+---
+
+## Troubleshooting
+
+The bot authenticates to AdventureLog with your **username and password** (a session login). Most "it's not working" reports come down to that sign-in failing. When it does, you'll now see a clear line in the logs and a message in the chat instead of a silent empty result:
+
+```
+ERROR bot.client: AdventureLog login failed for user 'admin' (HTTP 400): ... — check AL_USERNAME/AL_PASSWORD.
+```
+
+A healthy start logs the opposite:
+
+```
+INFO bot.client: AdventureLog login succeeded for user 'admin'
+```
+
+### "No trips found" / everything is empty
+
+This is almost always a sign-in failure, not missing data. Check the logs for the `login failed` line above, then work through the causes below.
+
+### Password with special characters gets mangled in `.env`
+
+If your password contains `#`, `!`, or `$`, an unquoted value in `.env` will be **truncated or altered** — `#` in particular is treated as the start of a comment, so `AL_PASSWORD=My#Secret!Pass` silently becomes `My`. Always **quote** it:
+
+```env
+AL_PASSWORD='My#Secret!Pass'
+```
+
+Then confirm the container actually received the full value (the definitive check):
+
+```bash
+docker compose exec adventurebot printenv AL_PASSWORD
+# must print the complete password, not a truncated prefix
+```
+
+If `printenv` still shows a truncated value even when quoted, either move the variables into an `env_file:` (which parses quotes reliably) or change the AdventureLog password to one without `#`/`!`/`$`.
+
+### Login rejected as invalid *even though the password is correct*
+
+AdventureLog rate-limits repeated **failed** logins. After several bad attempts it will reject sign-in with an "invalid credentials" response for a cool-down window — even for the correct password. If you've been testing with a wrong password, **wait a few minutes** and try again, and avoid rapid retries.
+
+### The account has no trips
+
+The bot only sees data **owned by the account it signs in as**. `AL_USERNAME` must be the AdventureLog user that actually owns your collections/locations — a different or empty account will connect fine but show nothing. Verify by logging into the AdventureLog web UI with the same credentials and confirming your trips are there.
+
+### Why not an API key?
+
+AdventureLog API keys are **not** used: on current instances `/api/collections` returns a `500 Internal Server Error` under API-key authentication, so trips can't be listed. The bot therefore uses username/password session auth, which reads collections and locations correctly.
