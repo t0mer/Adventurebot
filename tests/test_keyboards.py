@@ -14,6 +14,7 @@ from bot.keyboards import (
     reco_category_keyboard,
     reco_radius_keyboard,
     trip_category,
+    locations_menu,
 )
 from telegram import InlineKeyboardMarkup
 
@@ -291,3 +292,19 @@ def test_trip_category_has_reco_button_even_when_empty():
     kb = trip_category("trip1", has_locations=False, has_transport=False)
     all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "reco:trip:trip1" in all_callbacks
+
+
+def test_locations_menu_has_three_options_and_back():
+    kb = locations_menu("c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "tl:c1:0" in data          # page one by one
+    assert "loclist:c1" in data       # list all
+    assert "locsearch:c1" in data     # search by name
+    assert "tc:c1" in data            # back to trip screen
+
+
+def test_trip_category_locations_button_opens_menu():
+    kb = trip_category("c1", has_locations=True, has_transport=False)
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "locmenu:c1" in data
+    assert "tl:c1:0" not in data      # no longer jumps straight to paging

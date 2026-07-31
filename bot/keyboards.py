@@ -100,6 +100,15 @@ def trips_list(collections: list[dict]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+def locations_menu(trip_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📖 Page one by one", callback_data=f"tl:{trip_id}:0")],
+        [InlineKeyboardButton("📋 List all", callback_data=f"loclist:{trip_id}")],
+        [InlineKeyboardButton("🔍 Search by name", callback_data=f"locsearch:{trip_id}")],
+        [InlineKeyboardButton("« Back", callback_data=f"tc:{trip_id}")],
+    ])
+
+
 def trip_category(
     trip_id: str,
     has_locations: bool,
@@ -108,7 +117,7 @@ def trip_category(
 ) -> InlineKeyboardMarkup:
     rows = []
     if has_locations:
-        rows.append([InlineKeyboardButton("📍 Locations", callback_data=f"tl:{trip_id}:0")])
+        rows.append([InlineKeyboardButton("📍 Locations", callback_data=f"locmenu:{trip_id}")])
     if has_transport:
         rows.append([InlineKeyboardButton("✈️ Transportation", callback_data=f"tt:{trip_id}:0")])
     if has_locations or has_transport:
