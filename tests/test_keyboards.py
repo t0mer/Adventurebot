@@ -283,6 +283,14 @@ def test_location_detail_no_reco_button_when_no_coords():
     assert "reco:loc:loc1" not in all_callbacks
 
 
+def test_location_detail_back_goes_to_locations_menu():
+    kb = location_detail("l1", trip_id="c1", index=0)
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row if btn.callback_data]
+    assert "locmenu:c1" in data
+    assert not any(d.startswith("tl:c1") for d in data)  # no itinerary back
+    assert "trips:list" in data                          # « Trips unchanged
+
+
 def test_trip_category_has_reco_button():
     kb = trip_category("trip1", has_locations=True, has_transport=False)
     all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]

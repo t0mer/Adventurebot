@@ -259,7 +259,7 @@ def location_detail(
             callback_data=f"reco:loc:{loc_id}",
         )])
     rows += [
-        [InlineKeyboardButton("« Itinerary", callback_data=f"tl:{trip_id}:{index}")],
+        [InlineKeyboardButton("« Locations", callback_data=f"locmenu:{trip_id}")],
         [InlineKeyboardButton("« Trips", callback_data="trips:list")],
     ]
     return InlineKeyboardMarkup(rows)
