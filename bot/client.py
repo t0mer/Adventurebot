@@ -6,6 +6,37 @@ from datetime import date
 logger = logging.getLogger(__name__)
 
 
+class AdventureLogAuthError(RuntimeError):
+    """Raised when authenticating against AdventureLog fails (bad credentials,
+    lockout, etc.). Surfaced loudly so a sign-in problem is not silently shown
+    to the user as an empty result."""
+
+
+def _login_failure_reason(resp: httpx.Response) -> str:
+    """Best-effort human-readable reason for a failed /login response."""
+    try:
+        data = resp.json()
+    except ValueError:
+        return (resp.text or "no response body").strip()[:200]
+    if isinstance(data, dict):
+        detail = data.get("data") or data.get("detail") or data.get("error")
+        if detail:
+            return str(detail)[:200]
+    return str(data)[:200]
+
+
+def _looks_unauthenticated(resp: httpx.Response) -> bool:
+    """True when a response indicates the session is missing/expired.
+
+    AdventureLog returns 400 with ``{"error": "User is not authenticated"}``
+    (not 401) for an absent/expired session, so match that explicitly."""
+    if resp.status_code == 401:
+        return True
+    if resp.status_code == 400:
+        return "not authenticated" in resp.text.lower()
+    return False
+
+
 class AdventureLogClient:
     def __init__(self, base_url: str, username: str, password: str) -> None:
         self._base = base_url.rstrip("/")
@@ -26,8 +57,18 @@ class AdventureLogClient:
             )
         cookie_header = resp.headers.get("set-cookie", "")
         m = re.search(r"sessionid=([^;]+)", cookie_header)
-        if m:
-            self._session_id = m.group(1)
+        if not m:
+            reason = _login_failure_reason(resp)
+            logger.error(
+                "AdventureLog login failed for user %r (HTTP %d): %s "
+                "— check AL_USERNAME/AL_PASSWORD.",
+                self._username, resp.status_code, reason,
+            )
+            raise AdventureLogAuthError(
+                f"AdventureLog login failed (HTTP {resp.status_code}): {reason}"
+            )
+        self._session_id = m.group(1)
+        logger.info("AdventureLog login succeeded for user %r", self._username)
 
     async def _write(self, method: str, path: str, data: dict) -> httpx.Response:
         if not self._session_id:
@@ -37,7 +78,7 @@ class AdventureLogClient:
         async with httpx.AsyncClient(cookies={"sessionid": self._session_id}) as http:
             resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
         logger.info("_write %s %s -> %d", method.upper(), url, resp.status_code)
-        if resp.status_code == 401:
+        if _looks_unauthenticated(resp):
             self._session_id = None
             await self._ensure_auth()
             async with httpx.AsyncClient(cookies={"sessionid": self._session_id}) as http:
@@ -54,7 +95,7 @@ class AdventureLogClient:
                 params=params,
                 headers={"Cookie": f"sessionid={self._session_id}"},
             )
-        if resp.status_code == 401:
+        if _looks_unauthenticated(resp):
             self._session_id = None
             await self._ensure_auth()
             async with httpx.AsyncClient() as http:
