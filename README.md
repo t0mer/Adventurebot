@@ -129,7 +129,7 @@ docker compose logs -f
 
 ### Main Menu
 
-<img src="assets/screenshots/main_menu.jpeg" width="300" alt="Main menu"/>
+<img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/main_menu.jpeg" width="300" alt="Main menu"/>
 
 Send `/start` to open the main menu. Four options: **My Trips**, **Search by keyword**, **Where was I on…**, and **Schedulers**.
 
@@ -139,8 +139,8 @@ Send `/start` to open the main menu. Four options: **My Trips**, **Search by key
 
 <table>
 <tr>
-<td><img src="assets/screenshots/trips_list.jpeg" width="280" alt="Trips list"/></td>
-<td><img src="assets/screenshots/trip_detail.jpeg" width="280" alt="Trip detail"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/trips_list.jpeg" width="280" alt="Trips list"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/trip_detail.jpeg" width="280" alt="Trip detail"/></td>
 </tr>
 <tr>
 <td>All collections from AdventureLog, each showing its date range.</td>
@@ -154,8 +154,8 @@ Send `/start` to open the main menu. Four options: **My Trips**, **Search by key
 
 <table>
 <tr>
-<td><img src="assets/screenshots/itinerary_stop.jpeg" width="280" alt="Itinerary stop"/></td>
-<td><img src="assets/screenshots/calendar.jpeg" width="280" alt="Calendar"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/itinerary_stop.jpeg" width="280" alt="Itinerary stop"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/calendar.jpeg" width="280" alt="Calendar"/></td>
 </tr>
 <tr>
 <td>Step through each stop in a trip. Tap <strong>Details</strong> to see the full location card, or <strong>Next</strong> to advance.</td>
@@ -167,7 +167,7 @@ Send `/start` to open the main menu. Four options: **My Trips**, **Search by key
 
 ### Location Detail
 
-<img src="assets/screenshots/location_detail.jpeg" width="300" alt="Location detail"/>
+<img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/location_detail.jpeg" width="300" alt="Location detail"/>
 
 Each location shows its name, rating, description, and GPS coordinates. Buttons open Apple Maps, Google Maps, or start turn-by-turn navigation. Tap **Recommendations nearby** to find places around this location.
 
@@ -177,9 +177,9 @@ Each location shows its name, rating, description, and GPS coordinates. Buttons 
 
 <table>
 <tr>
-<td><img src="assets/screenshots/recommendations_category.jpeg" width="280" alt="Choose category"/></td>
-<td><img src="assets/screenshots/recommendations_radius.jpeg" width="280" alt="Choose radius"/></td>
-<td><img src="assets/screenshots/recommendations_results.jpeg" width="280" alt="Results"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/recommendations_category.jpeg" width="280" alt="Choose category"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/recommendations_radius.jpeg" width="280" alt="Choose radius"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/recommendations_results.jpeg" width="280" alt="Results"/></td>
 </tr>
 <tr>
 <td>Choose a category: Food, Lodging, or Tourism.</td>
@@ -194,8 +194,8 @@ Each location shows its name, rating, description, and GPS coordinates. Buttons 
 
 <table>
 <tr>
-<td><img src="assets/screenshots/checklists_list.jpeg" width="280" alt="Checklists list"/></td>
-<td><img src="assets/screenshots/checklist_items.jpeg" width="280" alt="Checklist items"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/checklists_list.jpeg" width="280" alt="Checklists list"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/checklist_items.jpeg" width="280" alt="Checklist items"/></td>
 </tr>
 <tr>
 <td>All checklists for a trip, with item counts.</td>
@@ -209,8 +209,8 @@ Each location shows its name, rating, description, and GPS coordinates. Buttons 
 
 <table>
 <tr>
-<td><img src="assets/screenshots/schedulers.jpeg" width="280" alt="Schedulers menu"/></td>
-<td><img src="assets/screenshots/scheduler_evening_digest.jpeg" width="280" alt="Evening digest settings"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/schedulers.jpeg" width="280" alt="Schedulers menu"/></td>
+<td><img src="https://raw.githubusercontent.com/t0mer/Adventurebot/main/assets/screenshots/scheduler_evening_digest.jpeg" width="280" alt="Evening digest settings"/></td>
 </tr>
 <tr>
 <td>Two built-in schedulers: <strong>Checklist reminder</strong> and <strong>Evening digest</strong>. Each shows its current on/off state.</td>
