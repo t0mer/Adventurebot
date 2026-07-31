@@ -17,6 +17,7 @@ from .keyboards import (
 SEARCHING = 0
 DATING = 1
 ADDING_CL_ITEM = 2
+LOC_SEARCHING = 3
 
 
 def _client(ctx: ContextTypes.DEFAULT_TYPE):
@@ -125,6 +126,45 @@ async def handle_loc_pick_page(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -
     await update.callback_query.answer()
     page = int(update.callback_query.data.split(":")[1])
     await _render_loc_pick(update, ctx, page=page)
+
+
+async def handle_loc_search_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.callback_query.answer()
+    trip_id = update.callback_query.data.split(":")[1]
+    ctx.user_data["trip_id"] = trip_id
+    ctx.user_data["loc_search_trip_id"] = trip_id
+    await update.callback_query.edit_message_text(
+        "Type part of a location name:",
+        reply_markup=search_prompt(),
+    )
+    return LOC_SEARCHING
+
+
+async def handle_loc_search_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    query = (update.message.text or "").strip()
+    trip_id = ctx.user_data.get("loc_search_trip_id", "")
+    locations = await _client(ctx).get_locations()
+    items = [
+        it for it in _trip_locations(locations, trip_id)
+        if query.lower() in it["name"].lower()
+    ]
+    if not items:
+        await update.message.reply_text(
+            f'No locations match "{query}".',
+            reply_markup=locations_menu(trip_id),
+        )
+        return ConversationHandler.END
+    ctx.user_data["loc_pick"] = {
+        "trip_id": trip_id,
+        "items": items,
+        "title": f'Matches for "{query}"',
+    }
+    plural = "es" if len(items) != 1 else ""
+    await update.message.reply_text(
+        f'{len(items)} match{plural} for "{query}":',
+        reply_markup=locations_picker(items, 0, back_cb=f"locmenu:{trip_id}"),
+    )
+    return ConversationHandler.END
 
 
 async def handle_trips_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

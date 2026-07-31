@@ -22,9 +22,12 @@ from bot.handlers import (
     handle_locations_menu,
     handle_locations_list,
     handle_loc_pick_page,
+    handle_loc_search_go,
+    handle_loc_search_text,
     _trip_locations,
     SEARCHING,
     DATING,
+    LOC_SEARCHING,
 )
 
 
@@ -405,3 +408,42 @@ async def test_handle_loc_pick_page_missing_state_falls_back_to_menu():
     markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
     data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
     assert "loclist:c1" in data   # bounced back to the locations menu
+
+
+async def test_handle_loc_search_go_enters_state():
+    upd = make_update_with_callback("locsearch:c1")
+    ctx = make_context()
+    result = await handle_loc_search_go(upd, ctx)
+    assert result == LOC_SEARCHING
+    assert ctx.user_data["loc_search_trip_id"] == "c1"
+    upd.callback_query.edit_message_text.assert_awaited()
+
+
+async def test_handle_loc_search_text_filters_matches():
+    locations = [
+        {"id": "l1", "name": "Zakopane Hotel", "collections": ["c1"]},
+        {"id": "l2", "name": "Krakow Old Town", "collections": ["c1"]},
+        {"id": "l3", "name": "Warsaw", "collections": ["c2"]},
+    ]
+    client = make_client(locations=locations)
+    upd = make_update_with_message("krak")
+    ctx = make_context(client=client)
+    ctx.user_data["loc_search_trip_id"] = "c1"
+    result = await handle_loc_search_text(upd, ctx)
+    assert result == ConversationHandler.END
+    upd.message.reply_text.assert_awaited()
+    pick = ctx.user_data["loc_pick"]
+    assert [it["id"] for it in pick["items"]] == ["l2"]   # case-insensitive, this trip only
+
+
+async def test_handle_loc_search_text_no_matches():
+    locations = [{"id": "l1", "name": "Zakopane", "collections": ["c1"]}]
+    client = make_client(locations=locations)
+    upd = make_update_with_message("nowhere")
+    ctx = make_context(client=client)
+    ctx.user_data["loc_search_trip_id"] = "c1"
+    result = await handle_loc_search_text(upd, ctx)
+    assert result == ConversationHandler.END
+    markup = upd.message.reply_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "loclist:c1" in data   # locations menu shown on no-match
