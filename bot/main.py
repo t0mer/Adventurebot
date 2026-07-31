@@ -1,16 +1,18 @@
 import logging
 import os
 from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     ConversationHandler,
+    ContextTypes,
     MessageHandler,
     filters,
 )
 
-from .client import AdventureLogClient
+from .client import AdventureLogClient, AdventureLogAuthError
 from .handlers import (
     sorry_unauthorized,
     sorry_unauthorized_cb,
@@ -63,6 +65,25 @@ async def _on_startup(app: Application) -> None:
     _reschedule(app, "evening_digest")
 
 
+async def _on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log every handler error loudly and tell the user, so a sign-in failure
+    surfaces clearly instead of looking like an empty result."""
+    err = ctx.error
+    logger.error("Handler error: %s", err, exc_info=err)
+    if isinstance(err, AdventureLogAuthError):
+        msg = (
+            "⚠️ Could not sign in to AdventureLog — the bot's credentials may be "
+            "wrong or the account is temporarily locked. Please contact the admin."
+        )
+    else:
+        msg = "⚠️ Something went wrong reaching AdventureLog. Please try again shortly."
+    if isinstance(update, Update) and update.effective_chat:
+        try:
+            await ctx.bot.send_message(update.effective_chat.id, msg)
+        except Exception:  # noqa: BLE001 — best-effort notify; never mask the original error
+            logger.debug("Failed to send error notice to user", exc_info=True)
+
+
 def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Application:
     client = AdventureLogClient(base_url=al_url, username=al_username, password=al_password)
 
@@ -73,6 +94,7 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
         .build()
     )
     app.bot_data["client"] = client
+    app.add_error_handler(_on_error)
     allowed_raw = os.environ.get("ALLOWED_IDS", "").strip()
     allowed_ids = frozenset(s.strip() for s in allowed_raw.split(",") if s.strip()) if allowed_raw else frozenset()
     app.bot_data["allowed_ids"] = allowed_ids
