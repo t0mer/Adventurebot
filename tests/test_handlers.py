@@ -19,6 +19,8 @@ from bot.handlers import (
     handle_search_text,
     handle_date_go,
     handle_date_text,
+    handle_locations_menu,
+    _trip_locations,
     SEARCHING,
     DATING,
 )
@@ -331,3 +333,27 @@ async def test_sorry_unauthorized_cb_passes_when_unrestricted():
     ctx = make_context()
     ctx.bot_data["allowed_ids"] = frozenset()
     await sorry_unauthorized_cb(upd, ctx)  # must not raise
+
+
+def test_trip_locations_dedupes_and_sorts():
+    locations = [
+        {"id": "l2", "name": "Zakopane", "collections": ["c1"]},
+        {"id": "l1", "name": "Auschwitz", "collections": ["c1"]},
+        {"id": "l2", "name": "Zakopane", "collections": ["c1"]},   # dup id
+        {"id": "l3", "name": "Warsaw", "collections": ["c2"]},     # other trip
+    ]
+    out = _trip_locations(locations, "c1")
+    assert [x["id"] for x in out] == ["l1", "l2"]
+    assert [x["name"] for x in out] == ["Auschwitz", "Zakopane"]
+
+
+async def test_handle_locations_menu_shows_three_options():
+    client = make_client()
+    upd = make_update_with_callback("locmenu:c1")
+    ctx = make_context(client=client)
+    await handle_locations_menu(upd, ctx)
+    upd.callback_query.edit_message_text.assert_awaited()
+    assert ctx.user_data["trip_id"] == "c1"
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "loclist:c1" in data and "locsearch:c1" in data and "tl:c1:0" in data

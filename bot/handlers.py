@@ -9,7 +9,7 @@ from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandl
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
     calendar_list, transportation_item, location_detail,
-    checklist_list, checklist_detail,
+    checklist_list, checklist_detail, locations_menu,
     search_prompt, date_prompt,
     parse_date, fmt_date, fmt_date_range, fmt_datetime, fmt_transport,
 )
@@ -67,6 +67,31 @@ async def handle_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 # ─── trips ───────────────────────────────────────────────────────────────────
+
+def _trip_locations(locations: list[dict], trip_id: str) -> list[dict]:
+    """Unique {'id','name'} for a trip's locations, sorted by name."""
+    seen: set = set()
+    out: list[dict] = []
+    for loc in locations:
+        lid = loc.get("id")
+        if not lid or lid in seen:
+            continue
+        if trip_id in loc.get("collections", []):
+            seen.add(lid)
+            out.append({"id": lid, "name": loc.get("name", "Unknown")})
+    out.sort(key=lambda x: x["name"].lower())
+    return out
+
+
+async def handle_locations_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    trip_id = update.callback_query.data.split(":")[1]
+    ctx.user_data["trip_id"] = trip_id
+    await update.callback_query.edit_message_text(
+        "How would you like to browse locations?",
+        reply_markup=locations_menu(trip_id),
+    )
+
 
 async def handle_trips_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
