@@ -63,8 +63,8 @@ async def _on_startup(app: Application) -> None:
     _reschedule(app, "evening_digest")
 
 
-def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Application:
-    client = AdventureLogClient(base_url=al_url, username=al_username, password=al_password)
+def build_app(token: str, al_url: str, al_api_key: str) -> Application:
+    client = AdventureLogClient(base_url=al_url, api_key=al_api_key)
 
     app = (
         Application.builder()
@@ -147,10 +147,9 @@ def main() -> None:
     load_dotenv()
     token = os.environ["TELEGRAM_TOKEN"]
     al_url = os.environ["AL_URL"]
-    al_username = os.environ["AL_USERNAME"]
-    al_password = os.environ["AL_PASSWORD"]
+    al_api_key = os.environ["AL_API_KEY"]
 
-    app = build_app(token, al_url, al_username, al_password)
+    app = build_app(token, al_url, al_api_key)
     logger.info("Starting Adventurebot…")
     app.run_polling(drop_pending_updates=True)
 
