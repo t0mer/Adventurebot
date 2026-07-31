@@ -6,7 +6,8 @@ services:
     environment:
       TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
       AL_URL: ${AL_URL}
-      AL_API_KEY: ${AL_API_KEY}
+      AL_USERNAME: ${AL_USERNAME}
+      AL_PASSWORD: ${AL_PASSWORD}
       ALLOWED_IDS: ${ALLOWED_IDS:-}
     volumes:
       - ./data:/app/data

@@ -1,4 +1,5 @@
 import logging
+import re
 import httpx
 from datetime import date
 
@@ -6,29 +7,62 @@ logger = logging.getLogger(__name__)
 
 
 class AdventureLogClient:
-    def __init__(self, base_url: str, api_key: str) -> None:
+    def __init__(self, base_url: str, username: str, password: str) -> None:
         self._base = base_url.rstrip("/")
-        self._api_key = api_key
+        self._username = username
+        self._password = password
+        self._session_id: str | None = None
 
-    @property
-    def _auth_headers(self) -> dict:
-        return {"X-Api-Key": self._api_key}
+    async def _ensure_auth(self) -> None:
+        async with httpx.AsyncClient() as http:
+            resp = await http.post(
+                f"{self._base}/login",
+                data={"username": self._username, "password": self._password},
+                headers={
+                    "Origin": self._base,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                follow_redirects=False,
+            )
+        cookie_header = resp.headers.get("set-cookie", "")
+        m = re.search(r"sessionid=([^;]+)", cookie_header)
+        if m:
+            self._session_id = m.group(1)
 
     async def _write(self, method: str, path: str, data: dict) -> httpx.Response:
+        if not self._session_id:
+            await self._ensure_auth()
         url = f"{self._base}/{path.lstrip('/')}"
-        headers = {**self._auth_headers, "Content-Type": "application/json"}
-        async with httpx.AsyncClient() as http:
+        headers = {"Content-Type": "application/json"}
+        async with httpx.AsyncClient(cookies={"sessionid": self._session_id}) as http:
             resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
         logger.info("_write %s %s -> %d", method.upper(), url, resp.status_code)
+        if resp.status_code == 401:
+            self._session_id = None
+            await self._ensure_auth()
+            async with httpx.AsyncClient(cookies={"sessionid": self._session_id}) as http:
+                resp = await getattr(http, method)(url, json=data, headers=headers, follow_redirects=True)
+            logger.info("_write retry %s %s -> %d", method.upper(), url, resp.status_code)
         return resp
 
     async def _get(self, path: str, params: dict | None = None) -> httpx.Response:
+        if not self._session_id:
+            await self._ensure_auth()
         async with httpx.AsyncClient() as http:
             resp = await http.get(
                 f"{self._base}/{path.lstrip('/')}",
                 params=params,
-                headers=self._auth_headers,
+                headers={"Cookie": f"sessionid={self._session_id}"},
             )
+        if resp.status_code == 401:
+            self._session_id = None
+            await self._ensure_auth()
+            async with httpx.AsyncClient() as http:
+                resp = await http.get(
+                    f"{self._base}/{path.lstrip('/')}",
+                    params=params,
+                    headers={"Cookie": f"sessionid={self._session_id}"},
+                )
         return resp
 
     async def get_collections(self) -> list[dict]:
@@ -92,10 +126,12 @@ class AdventureLogClient:
         url_host = urlparse(url).hostname or ""
         if url_host.lower().rstrip(".") != base_host.lower().rstrip("."):
             raise ValueError(f"Refusing to fetch attachment from untrusted host: {url_host!r}")
+        if not self._session_id:
+            await self._ensure_auth()
         async with httpx.AsyncClient() as http:
             resp = await http.get(
                 url,
-                headers=self._auth_headers,
+                headers={"Cookie": f"sessionid={self._session_id}"},
                 follow_redirects=False,
             )
         return resp.content

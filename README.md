@@ -54,7 +54,8 @@ cp env.example .env
 |---|:---:|---|
 | `TELEGRAM_TOKEN` | ✓ | Bot token from @BotFather |
 | `AL_URL` | ✓ | Full URL of your AdventureLog instance, e.g. `https://adventure.example.com` |
-| `AL_API_KEY` | ✓ | AdventureLog API key. Create one under **Settings → Integrations → API Keys** in AdventureLog. Sent as the `X-Api-Key` header. |
+| `AL_USERNAME` | ✓ | AdventureLog username |
+| `AL_PASSWORD` | ✓ | AdventureLog password |
 | `ALLOWED_IDS` | | Comma-separated Telegram chat IDs that may use the bot. Leave empty to allow everyone. Find your chat ID by messaging [@userinfobot](https://t.me/userinfobot). |
 
 Example `.env`:
@@ -62,7 +63,8 @@ Example `.env`:
 ```env
 TELEGRAM_TOKEN=123456:ABCdefGHIjklMNOpqrSTUvwxYZ
 AL_URL=https://adventure.example.com
-AL_API_KEY=al_your_api_key_here
+AL_USERNAME=admin
+AL_PASSWORD=secret
 ALLOWED_IDS=367468362,112233445
 ```
 
@@ -108,7 +110,8 @@ docker run -d \
   --restart unless-stopped \
   -e TELEGRAM_TOKEN=your_token \
   -e AL_URL=https://adventure.example.com \
-  -e AL_API_KEY=al_your_api_key_here \
+  -e AL_USERNAME=admin \
+  -e AL_PASSWORD=secret \
   -e ALLOWED_IDS=123456789 \
   -v $(pwd)/data:/app/data \
   techblog/adventurebot:latest
