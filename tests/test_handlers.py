@@ -20,6 +20,8 @@ from bot.handlers import (
     handle_date_go,
     handle_date_text,
     handle_locations_menu,
+    handle_locations_list,
+    handle_loc_pick_page,
     _trip_locations,
     SEARCHING,
     DATING,
@@ -357,3 +359,49 @@ async def test_handle_locations_menu_shows_three_options():
     markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
     data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
     assert "loclist:c1" in data and "locsearch:c1" in data and "tl:c1:0" in data
+
+
+def _trip_locs(n, trip="c1"):
+    return [{"id": f"l{i}", "name": f"Place {i:02d}", "collections": [trip]} for i in range(n)]
+
+
+async def test_handle_locations_list_stores_pick_and_renders_page0():
+    client = make_client(locations=_trip_locs(12))
+    upd = make_update_with_callback("loclist:c1")
+    ctx = make_context(client=client)
+    await handle_locations_list(upd, ctx)
+    upd.callback_query.edit_message_text.assert_awaited()
+    pick = ctx.user_data["loc_pick"]
+    assert pick["trip_id"] == "c1"
+    assert len(pick["items"]) == 12
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert sum(d.startswith("ld:") for d in data) == 8   # page 0 of 12
+    assert "locpg:1" in data
+
+
+async def test_handle_loc_pick_page_renders_requested_page():
+    client = make_client()
+    ctx = make_context(client=client)
+    ctx.user_data["loc_pick"] = {
+        "trip_id": "c1",
+        "items": [{"id": f"l{i}", "name": f"Place {i}"} for i in range(12)],
+        "title": "All locations",
+    }
+    upd = make_update_with_callback("locpg:1")
+    await handle_loc_pick_page(upd, ctx)
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert sum(d.startswith("ld:") for d in data) == 4   # page 1 of 12
+    assert "locpg:0" in data
+
+
+async def test_handle_loc_pick_page_missing_state_falls_back_to_menu():
+    client = make_client()
+    ctx = make_context(client=client)   # no loc_pick
+    ctx.user_data["trip_id"] = "c1"
+    upd = make_update_with_callback("locpg:1")
+    await handle_loc_pick_page(upd, ctx)
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "loclist:c1" in data   # bounced back to the locations menu

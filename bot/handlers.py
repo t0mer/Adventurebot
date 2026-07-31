@@ -9,7 +9,7 @@ from telegram.ext import ApplicationHandlerStop, ContextTypes, ConversationHandl
 from .keyboards import (
     main_menu, trips_list, trip_category, trip_itinerary,
     calendar_list, transportation_item, location_detail,
-    checklist_list, checklist_detail, locations_menu,
+    checklist_list, checklist_detail, locations_menu, locations_picker,
     search_prompt, date_prompt,
     parse_date, fmt_date, fmt_date_range, fmt_datetime, fmt_transport,
 )
@@ -91,6 +91,40 @@ async def handle_locations_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) 
         "How would you like to browse locations?",
         reply_markup=locations_menu(trip_id),
     )
+
+
+async def _render_loc_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE, page: int) -> None:
+    pick = ctx.user_data.get("loc_pick")
+    if not pick or not pick.get("items"):
+        trip_id = (pick or {}).get("trip_id") or ctx.user_data.get("trip_id", "")
+        await update.callback_query.edit_message_text(
+            "No locations found.",
+            reply_markup=locations_menu(trip_id),
+        )
+        return
+    trip_id = pick["trip_id"]
+    items = pick["items"]
+    title = pick.get("title", "Locations")
+    await update.callback_query.edit_message_text(
+        f"{title} ({len(items)}):",
+        reply_markup=locations_picker(items, page, back_cb=f"locmenu:{trip_id}"),
+    )
+
+
+async def handle_locations_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    trip_id = update.callback_query.data.split(":")[1]
+    ctx.user_data["trip_id"] = trip_id
+    locations = await _client(ctx).get_locations()
+    items = _trip_locations(locations, trip_id)
+    ctx.user_data["loc_pick"] = {"trip_id": trip_id, "items": items, "title": "All locations"}
+    await _render_loc_pick(update, ctx, page=0)
+
+
+async def handle_loc_pick_page(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    page = int(update.callback_query.data.split(":")[1])
+    await _render_loc_pick(update, ctx, page=page)
 
 
 async def handle_trips_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
