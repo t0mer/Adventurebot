@@ -447,3 +447,15 @@ async def test_handle_loc_search_text_no_matches():
     markup = upd.message.reply_text.call_args.kwargs["reply_markup"]
     data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
     assert "loclist:c1" in data   # locations menu shown on no-match
+
+
+def test_main_imports_location_picker_handlers():
+    # Fails until main.py imports the new handlers from bot.handlers.
+    import importlib, bot.main
+    importlib.reload(bot.main)
+    for name in (
+        "handle_locations_menu", "handle_locations_list",
+        "handle_loc_pick_page", "handle_loc_search_go",
+        "handle_loc_search_text", "LOC_SEARCHING",
+    ):
+        assert hasattr(bot.main, name), f"{name} not wired into main.py"

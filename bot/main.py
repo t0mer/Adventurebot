@@ -35,9 +35,15 @@ from .handlers import (
     handle_checklist_remove_item,
     handle_checklist_add_go,
     handle_checklist_add_text,
+    handle_locations_menu,
+    handle_locations_list,
+    handle_loc_pick_page,
+    handle_loc_search_go,
+    handle_loc_search_text,
     SEARCHING,
     DATING,
     ADDING_CL_ITEM,
+    LOC_SEARCHING,
 )
 from .scheduler_handlers import (
     handle_schedulers_menu,
@@ -131,6 +137,12 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
 
     reco_conv = build_reco_conv()
 
+    loc_search_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(handle_loc_search_go, pattern=r"^locsearch:")],
+        states={LOC_SEARCHING: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_loc_search_text)]},
+        fallbacks=[CallbackQueryHandler(handle_menu, pattern="^menu:main$")],
+    )
+
     if allowed_ids:
         allowed_ints = [int(x) for x in allowed_ids]
         app.add_handler(
@@ -146,6 +158,7 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
     app.add_handler(sched_time_conv)
     app.add_handler(sched_tz_conv)
     app.add_handler(reco_conv)
+    app.add_handler(loc_search_conv)
     app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:main$"))
     app.add_handler(CallbackQueryHandler(handle_trips_list, pattern="^trips:list$"))
     app.add_handler(CallbackQueryHandler(handle_trip_category, pattern=r"^tc:"))
@@ -161,6 +174,9 @@ def build_app(token: str, al_url: str, al_username: str, al_password: str) -> Ap
     app.add_handler(CallbackQueryHandler(handle_schedulers_menu, pattern=r"^sched:menu$"))
     app.add_handler(CallbackQueryHandler(handle_scheduler_detail, pattern=r"^sched:detail:"))
     app.add_handler(CallbackQueryHandler(handle_scheduler_toggle, pattern=r"^sched:toggle:"))
+    app.add_handler(CallbackQueryHandler(handle_locations_menu, pattern=r"^locmenu:"))
+    app.add_handler(CallbackQueryHandler(handle_locations_list, pattern=r"^loclist:"))
+    app.add_handler(CallbackQueryHandler(handle_loc_pick_page, pattern=r"^locpg:"))
 
     return app
 
