@@ -19,8 +19,15 @@ from bot.handlers import (
     handle_search_text,
     handle_date_go,
     handle_date_text,
+    handle_locations_menu,
+    handle_locations_list,
+    handle_loc_pick_page,
+    handle_loc_search_go,
+    handle_loc_search_text,
+    _trip_locations,
     SEARCHING,
     DATING,
+    LOC_SEARCHING,
 )
 
 
@@ -331,3 +338,124 @@ async def test_sorry_unauthorized_cb_passes_when_unrestricted():
     ctx = make_context()
     ctx.bot_data["allowed_ids"] = frozenset()
     await sorry_unauthorized_cb(upd, ctx)  # must not raise
+
+
+def test_trip_locations_dedupes_and_sorts():
+    locations = [
+        {"id": "l2", "name": "Zakopane", "collections": ["c1"]},
+        {"id": "l1", "name": "Auschwitz", "collections": ["c1"]},
+        {"id": "l2", "name": "Zakopane", "collections": ["c1"]},   # dup id
+        {"id": "l3", "name": "Warsaw", "collections": ["c2"]},     # other trip
+    ]
+    out = _trip_locations(locations, "c1")
+    assert [x["id"] for x in out] == ["l1", "l2"]
+    assert [x["name"] for x in out] == ["Auschwitz", "Zakopane"]
+
+
+async def test_handle_locations_menu_shows_three_options():
+    client = make_client()
+    upd = make_update_with_callback("locmenu:c1")
+    ctx = make_context(client=client)
+    await handle_locations_menu(upd, ctx)
+    upd.callback_query.edit_message_text.assert_awaited()
+    assert ctx.user_data["trip_id"] == "c1"
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "loclist:c1" in data and "locsearch:c1" in data and "tl:c1:0" in data
+
+
+def _trip_locs(n, trip="c1"):
+    return [{"id": f"l{i}", "name": f"Place {i:02d}", "collections": [trip]} for i in range(n)]
+
+
+async def test_handle_locations_list_stores_pick_and_renders_page0():
+    client = make_client(locations=_trip_locs(12))
+    upd = make_update_with_callback("loclist:c1")
+    ctx = make_context(client=client)
+    await handle_locations_list(upd, ctx)
+    upd.callback_query.edit_message_text.assert_awaited()
+    pick = ctx.user_data["loc_pick"]
+    assert pick["trip_id"] == "c1"
+    assert len(pick["items"]) == 12
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert sum(d.startswith("ld:") for d in data) == 8   # page 0 of 12
+    assert "locpg:1" in data
+
+
+async def test_handle_loc_pick_page_renders_requested_page():
+    client = make_client()
+    ctx = make_context(client=client)
+    ctx.user_data["loc_pick"] = {
+        "trip_id": "c1",
+        "items": [{"id": f"l{i}", "name": f"Place {i}"} for i in range(12)],
+        "title": "All locations",
+    }
+    upd = make_update_with_callback("locpg:1")
+    await handle_loc_pick_page(upd, ctx)
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert sum(d.startswith("ld:") for d in data) == 4   # page 1 of 12
+    assert "locpg:0" in data
+
+
+async def test_handle_loc_pick_page_missing_state_falls_back_to_menu():
+    client = make_client()
+    ctx = make_context(client=client)   # no loc_pick
+    ctx.user_data["trip_id"] = "c1"
+    upd = make_update_with_callback("locpg:1")
+    await handle_loc_pick_page(upd, ctx)
+    markup = upd.callback_query.edit_message_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "loclist:c1" in data   # bounced back to the locations menu
+
+
+async def test_handle_loc_search_go_enters_state():
+    upd = make_update_with_callback("locsearch:c1")
+    ctx = make_context()
+    result = await handle_loc_search_go(upd, ctx)
+    assert result == LOC_SEARCHING
+    assert ctx.user_data["loc_search_trip_id"] == "c1"
+    upd.callback_query.edit_message_text.assert_awaited()
+
+
+async def test_handle_loc_search_text_filters_matches():
+    locations = [
+        {"id": "l1", "name": "Zakopane Hotel", "collections": ["c1"]},
+        {"id": "l2", "name": "Krakow Old Town", "collections": ["c1"]},
+        {"id": "l3", "name": "Warsaw", "collections": ["c2"]},
+    ]
+    client = make_client(locations=locations)
+    upd = make_update_with_message("krak")
+    ctx = make_context(client=client)
+    ctx.user_data["loc_search_trip_id"] = "c1"
+    result = await handle_loc_search_text(upd, ctx)
+    assert result == ConversationHandler.END
+    upd.message.reply_text.assert_awaited()
+    pick = ctx.user_data["loc_pick"]
+    assert [it["id"] for it in pick["items"]] == ["l2"]   # case-insensitive, this trip only
+
+
+async def test_handle_loc_search_text_no_matches():
+    locations = [{"id": "l1", "name": "Zakopane", "collections": ["c1"]}]
+    client = make_client(locations=locations)
+    upd = make_update_with_message("nowhere")
+    ctx = make_context(client=client)
+    ctx.user_data["loc_search_trip_id"] = "c1"
+    result = await handle_loc_search_text(upd, ctx)
+    assert result == ConversationHandler.END
+    markup = upd.message.reply_text.call_args.kwargs["reply_markup"]
+    data = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "loclist:c1" in data   # locations menu shown on no-match
+
+
+def test_main_imports_location_picker_handlers():
+    # Fails until main.py imports the new handlers from bot.handlers.
+    import importlib, bot.main
+    importlib.reload(bot.main)
+    for name in (
+        "handle_locations_menu", "handle_locations_list",
+        "handle_loc_pick_page", "handle_loc_search_go",
+        "handle_loc_search_text", "LOC_SEARCHING",
+    ):
+        assert hasattr(bot.main, name), f"{name} not wired into main.py"

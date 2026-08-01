@@ -14,6 +14,8 @@ from bot.keyboards import (
     reco_category_keyboard,
     reco_radius_keyboard,
     trip_category,
+    locations_menu,
+    locations_picker,
 )
 from telegram import InlineKeyboardMarkup
 
@@ -281,6 +283,14 @@ def test_location_detail_no_reco_button_when_no_coords():
     assert "reco:loc:loc1" not in all_callbacks
 
 
+def test_location_detail_back_goes_to_locations_menu():
+    kb = location_detail("l1", trip_id="c1", index=0)
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row if btn.callback_data]
+    assert "locmenu:c1" in data
+    assert not any(d.startswith("tl:c1") for d in data)  # no itinerary back
+    assert "trips:list" in data                          # « Trips unchanged
+
+
 def test_trip_category_has_reco_button():
     kb = trip_category("trip1", has_locations=True, has_transport=False)
     all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
@@ -291,3 +301,61 @@ def test_trip_category_has_reco_button_even_when_empty():
     kb = trip_category("trip1", has_locations=False, has_transport=False)
     all_callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "reco:trip:trip1" in all_callbacks
+
+
+def test_locations_menu_has_three_options_and_back():
+    kb = locations_menu("c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "tl:c1:0" in data          # page one by one
+    assert "loclist:c1" in data       # list all
+    assert "locsearch:c1" in data     # search by name
+    assert "tc:c1" in data            # back to trip screen
+
+
+def test_trip_category_locations_button_opens_menu():
+    kb = trip_category("c1", has_locations=True, has_transport=False)
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "locmenu:c1" in data
+    assert "tl:c1:0" not in data      # no longer jumps straight to paging
+
+
+def _items(n):
+    return [{"id": f"l{i}", "name": f"Place {i:02d}"} for i in range(n)]
+
+
+def test_locations_picker_first_page_has_next_not_prev():
+    kb = locations_picker(_items(20), page=0, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    loc_buttons = [d for d in data if d.startswith("ld:")]
+    assert len(loc_buttons) == 8                 # 8 per page
+    assert "locpg:1" in data                     # Next
+    assert not any(d == "locpg:-1" for d in data)  # no Prev on first page
+    assert "locmenu:c1" in data                  # back
+
+
+def test_locations_picker_middle_page_has_both_arrows():
+    kb = locations_picker(_items(20), page=1, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "locpg:0" in data
+    assert "locpg:2" in data
+
+
+def test_locations_picker_last_page_has_prev_not_next():
+    kb = locations_picker(_items(20), page=2, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    loc_buttons = [d for d in data if d.startswith("ld:")]
+    assert len(loc_buttons) == 4                 # 20 - 16
+    assert "locpg:1" in data                     # Prev
+    assert not any(d == "locpg:3" for d in data)  # no Next past the end
+
+
+def test_locations_picker_single_page_has_no_arrows():
+    kb = locations_picker(_items(3), page=0, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert not any(d.startswith("locpg:") for d in data)
+
+
+def test_locations_picker_out_of_range_page_clamps():
+    kb = locations_picker(_items(3), page=99, back_cb="locmenu:c1")
+    data = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert any(d.startswith("ld:") for d in data)   # renders the last valid page
